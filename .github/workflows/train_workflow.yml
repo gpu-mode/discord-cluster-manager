@@ -5,23 +5,53 @@ on:
       script_content:
         description: 'Content of train.py'
         required: true
-        type: string  # Explicitly specify the type
+        type: string
 
 jobs:
   train:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+
     steps:
+      - name: Check out the repository (required by caching step)
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.13'
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: List pip cache before install (debug)
+        run: |
+          echo "Listing pip cache before installing dependencies:"
+          ls -lh ~/.cache/pip || echo "No pip cache found."
+
       - name: Install dependencies
         run: |
-          pip install numpy
-          # pip install torch - need to find a way to cache this otherwise it will take a long time to install
+          python -m pip install --upgrade pip
+          pip install torch numpy
+
+      - name: List pip cache after install (debug)
+        run: |
+          echo "Listing pip cache after installing dependencies:"
+          ls -lh ~/.cache/pip
 
       - name: Create and run training script
         run: |
           echo "${{ inputs.script_content }}" > train.py
           cat train.py  # Debug: print the content
           python train.py > training.log 2>&1
-        
+
       - name: Upload logs
         uses: actions/upload-artifact@v3
         if: always()  # Upload logs whether the job succeeds or fails

@@ -14,28 +14,32 @@ def trigger_github_action():
     """
     gh = Github(os.getenv('GITHUB_TOKEN'))
     repo = gh.get_repo(os.getenv('GITHUB_REPO'))
-    
     try:
         # Record the time before triggering
         trigger_time = datetime.now(timezone.utc)
         
         # Trigger the workflow
         workflow = repo.get_workflow("train_workflow.yml")
-        success = workflow.create_dispatch("main")
+        response = workflow.create_dispatch("main")
         
-        if success:
+        print("WORKFLOW: ", workflow)
+        print("RESPONSE: ", response)
+
+        if response:
             # Wait a moment for the run to be created
             time.sleep(2)
-            
             # Get runs created after our trigger time
             runs = list(workflow.get_runs())
             for run in runs:
                 if run.created_at.replace(tzinfo=timezone.utc) > trigger_time:
                     return run.id
-            
+        
+        print("Workflow dispatch failed, check permissions.")
         return None
     except Exception as e:
-        print(f"Error: {str(e)}")
+        print(f"Error triggering GitHub Action: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return None
 
 def download_artifact(run_id):
