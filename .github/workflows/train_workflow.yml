@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       script_content:
-        description: 'Content of train.py'
+        description: 'Content of torch/train.py'
         required: true
         type: string
 
@@ -48,9 +48,9 @@ jobs:
 
       - name: Create and run training script
         run: |
-          echo "${{ inputs.script_content }}" > train.py
-          cat train.py  # Debug: print the content
-          python train.py > training.log 2>&1
+          echo "${{ inputs.script_content }}" > torch/train.py
+          cat torch/train.py  # Debug: print the content
+          python torch/train.py > training.log 2>&1
 
       - name: Upload logs
         uses: actions/upload-artifact@v3
