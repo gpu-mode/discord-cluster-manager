@@ -31,9 +31,6 @@ if not os.getenv('GITHUB_REPO'):
 logger.info(f"Using GitHub repo: {os.getenv('GITHUB_REPO')}")
 
 def trigger_github_action():
-    """
-    Triggers the GitHub action and returns the latest run ID
-    """
     gh = Github(os.getenv('GITHUB_TOKEN'))
     repo = gh.get_repo(os.getenv('GITHUB_REPO'))
     try:
@@ -62,9 +59,6 @@ def trigger_github_action():
         return None
 
 def download_artifact(run_id):
-    """
-    Downloads the training log artifact from the workflow run
-    """
     gh = Github(os.getenv('GITHUB_TOKEN'))
     repo = gh.get_repo(os.getenv('GITHUB_REPO'))
     
@@ -104,9 +98,6 @@ def download_artifact(run_id):
         return f"Error downloading artifacts: {str(e)}"
 
 def check_workflow_status(run_id):
-    """
-    Monitors the GitHub Action workflow status
-    """
     gh = Github(os.getenv('GITHUB_TOKEN'))
     repo = gh.get_repo(os.getenv('GITHUB_REPO'))
     
