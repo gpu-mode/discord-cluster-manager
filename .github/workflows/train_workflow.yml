@@ -1,30 +1,63 @@
 name: Training Workflow
+
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'train.py'
   workflow_dispatch:
     inputs:
       script_content:
         description: 'Content of train.py'
-        required: true
-        type: string  # Explicitly specify the type
+        required: false
+        type: string
 
 jobs:
   train:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Cache PyTorch
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-torch-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-torch-
+
+      - name: Create requirements file
+        run: |
+          cat << EOF > requirements.txt
+          numpy
+          torch
+          EOF
+
+      - name: Setup Python environment
+        run: |
+          uv venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
       - name: Install dependencies
         run: |
-          pip install numpy
-          # pip install torch - need to find a way to cache this otherwise it will take a long time to install
+          uv pip install -r requirements.txt
 
-      - name: Create and run training script
+      - name: Run training script
         run: |
-          echo "${{ inputs.script_content }}" > train.py
-          cat train.py  # Debug: print the content
+          if [ ! -z "${{ inputs.script_content }}" ]; then
+            echo "${{ inputs.script_content }}" > train.py
+          fi
+          cat train.py # Debug: print the content
           python train.py > training.log 2>&1
-        
+
       - name: Upload logs
         uses: actions/upload-artifact@v3
-        if: always()  # Upload logs whether the job succeeds or fails
+        if: always()
         with:
           name: training-logs
           path: training.log
