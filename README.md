@@ -36,10 +36,10 @@ Github has some nice instructions here https://docs.github.com/en/actions/hostin
 
 ### Future work
 
-- Maybe we shouldn't use Github Action and can roll our own thing?
-- Make registering new GPUs simpler
+* Maybe we shouldn't use Github Action and can roll our own thing?
+* Make registering new GPUs simpler
 
 ## Acknowledgements
 
-- Luca Antiga did something very similar for the NeurIPS LLM efficiency competition, it was great!
-- Midjourney was a similar inspiration in terms of UX
+* Luca Antiga did something very similar for the NeurIPS LLM efficiency competition, it was great!
+* Midjourney was a similar inspiration in terms of UX
