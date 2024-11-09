@@ -9,6 +9,8 @@ import asyncio
 import logging
 import zipfile
 import subprocess
+from leaderboard import Leaderboard, LeaderboardEntry, HardwareInfo, KernelInfo
+from discord import app_commands
 
 # Set up logging
 logging.basicConfig(
@@ -56,179 +58,254 @@ if os.getenv("DEBUG") and not os.getenv('DISCORD_DEBUG_TOKEN'):
 logger.info(f"Using GitHub repo: {os.getenv('GITHUB_REPO')}")
 
 # Bot setup with minimal intents
-intents = discord.Intents.default()
-intents.message_content = True
-client = discord.Client(intents=intents)
+class ClusterBot(discord.Client):
+    def __init__(self):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        super().__init__(intents=intents)
+        self.tree = app_commands.CommandTree(self)
 
+    async def setup_hook(self):
+        await self.tree.sync()
 
-async def trigger_github_action(script_content):
-    """
-    Triggers the GitHub action with custom train.py contents
-    """
-    logger.info("Attempting to trigger GitHub action")
-    gh = Github(os.getenv('GITHUB_TOKEN'))
-    repo = gh.get_repo(os.getenv('GITHUB_REPO'))
-    
+client = ClusterBot()
+
+# Initialize leaderboard
+leaderboard = Leaderboard()
+
+def create_mock_entries():
+    # First user - optimized implementations
+    fast_user = "cuda_wizard"
+    fast_hardware = HardwareInfo(
+        name="4090",
+        count=1,
+        memory=24,
+        provider="Local"
+    )
+
     try:
-        trigger_time = datetime.now(timezone.utc)
-        logger.info(f"Looking for workflow 'train_workflow.yml' in repo {os.getenv('GITHUB_REPO')}")
-        
-        workflow = repo.get_workflow("train_workflow.yml")
-        logger.info("Found workflow, attempting to dispatch")
-        
-        success = workflow.create_dispatch(get_github_branch_name(), {'script_content': script_content})
-        logger.info(f"Workflow dispatch result: {success}")
-        
-        if success:
-            await asyncio.sleep(2)
-            runs = list(workflow.get_runs())
-            logger.info(f"Found {len(runs)} total runs")
-            
-            for run in runs:
-                logger.info(f"Checking run {run.id} created at {run.created_at}")
-                if run.created_at.replace(tzinfo=timezone.utc) > trigger_time:
-                    logger.info(f"Found matching run with ID: {run.id}")
-                    return run.id
-            
-            logger.warning("No matching runs found after trigger")
-            return None
-            
-    except Exception as e:
-        logger.error(f"Error in trigger_github_action: {str(e)}", exc_info=True)
-        return None
+        # GEMM Entry
+        leaderboard.add_entry(
+            username=fast_user,
+            hardware=fast_hardware,
+            kernel=KernelInfo(
+                name="GEMM FP16",
+                language="CUDA",
+                problem_size="M=8192, N=8192, K=8192",
+                description="Mixed-precision matrix multiplication optimized with tensor cores and shared memory tiling",
+                runtime=0.85,
+                framework="CUDA",
+                version="12.1"
+            ),
+            metrics={
+                "Throughput in TFLOPS": 90.5,
+                "Memory Bandwidth in GB/s": 850.2,
+                "Score": 0.98
+            },
+            run_id=f"mock_{len(leaderboard.entries)}"
+        )
 
-async def download_artifact(run_id):
-    """
-    Downloads the training log artifact from the workflow run
-    """
-    logger.info(f"Attempting to download artifacts for run {run_id}")
-    gh = Github(os.getenv('GITHUB_TOKEN'))
-    repo = gh.get_repo(os.getenv('GITHUB_REPO'))
-    
-    try:
-        run = repo.get_workflow_run(run_id)
-        artifacts = run.get_artifacts()
-        logger.info(f"Found {artifacts.totalCount} artifacts")
-        
-        for artifact in artifacts:
-            logger.info(f"Found artifact: {artifact.name}")
-            if artifact.name == 'training-logs':
-                url = artifact.archive_download_url
-                headers = {'Authorization': f'token {os.getenv("GITHUB_TOKEN")}'}
-                response = requests.get(url, headers=headers)
-                
-                if response.status_code == 200:
-                    logger.info("Successfully downloaded artifact")
-                    with open('training.log.zip', 'wb') as f:
-                        f.write(response.content)
-                    
-                    with zipfile.ZipFile('training.log.zip') as z:
-                        with z.open('training.log') as f:
-                            logs = f.read().decode('utf-8')
-                    
-                    os.remove('training.log.zip')
-                    return logs
-                else:
-                    logger.error(f"Failed to download artifact. Status code: {response.status_code}")
-        
-        logger.warning("No training-logs artifact found")
-        return "No training logs found in artifacts"
-    except Exception as e:
-        logger.error(f"Error in download_artifact: {str(e)}", exc_info=True)
-        return f"Error downloading artifacts: {str(e)}"
+        # Softmax Entry
+        leaderboard.add_entry(
+            username=fast_user,
+            hardware=fast_hardware,
+            kernel=KernelInfo(
+                name="Fused Softmax",
+                language="CUDA",
+                problem_size="batch=128, seq=2048",
+                description="Fused softmax with shared memory and warp-level optimizations",
+                runtime=0.15,
+                framework="CUDA",
+                version="12.1"
+            ),
+            metrics={
+                "Throughput in TFLOPS": 45.2,
+                "Memory Bandwidth in GB/s": 789.5,
+                "Score": 0.95
+            },
+            run_id=f"mock_{len(leaderboard.entries)}"
+        )
 
-async def check_workflow_status(run_id, thread):
-    """
-    Monitors the GitHub Action workflow status and updates Discord thread
-    """
-    logger.info(f"Starting to monitor workflow status for run {run_id}")
-    gh = Github(os.getenv('GITHUB_TOKEN'))
-    repo = gh.get_repo(os.getenv('GITHUB_REPO'))
-    
-    while True:
-        try:
-            run = repo.get_workflow_run(run_id)
-            logger.info(f"Current status: {run.status}")
-            
-            if run.status == "completed":
-                logger.info("Workflow completed, downloading artifacts")
-                logs = await download_artifact(run_id)
-                return run.conclusion, logs, run.html_url
-            
-            await thread.send(f"Workflow still running... Status: {run.status}\nLive view: {run.html_url}")
-            await asyncio.sleep(30)
-        except Exception as e:
-            logger.error(f"Error in check_workflow_status: {str(e)}", exc_info=True)
-            return "error", str(e), None
+        # Conv2D Entry
+        leaderboard.add_entry(
+            username=fast_user,
+            hardware=fast_hardware,
+            kernel=KernelInfo(
+                name="Conv2D",
+                language="CUDA",
+                problem_size="batch=32, c_in=256, h=112, w=112, k=512, r=3, s=3",
+                description="Im2Col + GEMM based convolution with tensor cores",
+                runtime=0.42,
+                framework="CUDA",
+                version="12.1"
+            ),
+            metrics={
+                "Throughput in TFLOPS": 75.8,
+                "Memory Bandwidth in GB/s": 820.4,
+                "Score": 0.92
+            },
+            run_id=f"mock_{len(leaderboard.entries)}"
+        )
+
+        # Flash Attention Entry
+        leaderboard.add_entry(
+            username=fast_user,
+            hardware=fast_hardware,
+            kernel=KernelInfo(
+                name="Flash Attention",
+                language="CUDA",
+                problem_size="batch=32, seq=2048, heads=32",
+                description="Optimized attention implementation with tiling and recomputation",
+                runtime=0.28,
+                framework="CUDA",
+                version="12.1"
+            ),
+            metrics={
+                "Throughput in TFLOPS": 68.4,
+                "Memory Bandwidth in GB/s": 795.6,
+                "Score": 0.90
+            },
+            run_id=f"mock_{len(leaderboard.entries)}"
+        )
+
+        # Add slower implementations for second user here...
+        # (Similar structure but with slower runtimes)
+
+        return "Added a mock entry to the RTX 4090 leaderboard! Type '@Cluster-Bot leaderboards' to view all leaderboards"
+    except Exception as e:
+        logger.error(f"Error adding mock entries: {str(e)}")
+        return f"Error adding mock entries: {str(e)}"
 
 @client.event
 async def on_ready():
     logger.info(f'Logged in as {client.user}')
+    await client.tree.sync()
+
+@client.tree.command(name="mockadd", description="Add a mock entry to the leaderboard")
+async def mockadd(interaction: discord.Interaction):
+    logger.info("mockadd command received")
+    mock_hardware = HardwareInfo(
+        name="4090",
+        count=1,
+        memory=24,
+        provider="Local"
+    )
+    
+    mock_kernel = KernelInfo(
+        name="GEMM 1024x1024",
+        language="CUDA",
+        problem_size="M=1024, N=1024, K=1024",
+        runtime=0.42,
+        framework="CUDA",
+        version="12.1"
+    )
+    
+    mock_metrics = {
+        "Score": 0.95,
+        "Throughput in TFLOPS": 45.2,
+        "Memory Bandwidth in GB/s": 850.2,
+        "Occupancy": 0.98,
+        "Achieved Memory BW %": 86.4
+    }
+    
+    try:
+        leaderboard.add_entry(
+            username=interaction.user.name,
+            hardware=mock_hardware,
+            kernel=mock_kernel,
+            metrics=mock_metrics,
+            run_id=f"mock_{len(leaderboard.entries)}"
+        )
+        await interaction.response.send_message("Added mock entry to leaderboard! Use `/leaderboard` to view it")
+    except Exception as e:
+        logger.error(f"Error adding mock entry: {str(e)}")
+        await interaction.response.send_message(f"Error adding mock entry: {str(e)}")
+
+@client.tree.command(name="leaderboards", description="Show available leaderboards")
+async def show_leaderboards(interaction: discord.Interaction):
+    hardware_list = leaderboard.get_available_hardware()
+    if not hardware_list:
+        await interaction.response.send_message("No leaderboards available yet!")
+        return
+        
+    output = ["```md", "# Available Leaderboards", ""]
+    for idx, hw in enumerate(hardware_list, 1):
+        output.append(f"{idx}. {hw} CUDA Kernel Benchmarks")
+    output.append("```")
+    await interaction.response.send_message("\n".join(output))
+
+@client.tree.command(name="leaderboard_show", description="Show specific leaderboard")
+async def show_specific_leaderboard(interaction: discord.Interaction, number: int):
+    hardware_list = leaderboard.get_available_hardware()
+    if not hardware_list:
+        await interaction.response.send_message("No leaderboards available yet!")
+        return
+        
+    if number < 1 or number > len(hardware_list):
+        await interaction.response.send_message(f"Please select a number between 1 and {len(hardware_list)}")
+        return
+        
+    hardware_name = hardware_list[number - 1]
+    formatted_board = await leaderboard.format_discord_message(hardware_name)
+    await interaction.response.send_message(formatted_board)
 
 @client.event
 async def on_message(message):
-    # Ignore messages from the bot itself
     if message.author == client.user:
         return
 
-    # Check if the bot is mentioned and there's an attachment
     if client.user in message.mentions:
-        logger.info(f"Bot mentioned in message with {len(message.attachments)} attachments")
-        if message.attachments:
-            for attachment in message.attachments:
-                logger.info(f"Processing attachment: {attachment.filename}")
-                if attachment.filename == "train.py":
-                    # Reply to the original message
-                    initial_reply = await message.reply("Found train.py! Starting training process...")
-                    
-                    # Create a new thread from the reply
-                    thread = await initial_reply.create_thread(
-                        name=f"Training Job - {datetime.now().strftime('%Y-%m-%d %H:%M')}",
-                        auto_archive_duration=1440  # Archive after 24 hours of inactivity
-                    )
-                    
-                    try:
-                        # Download the file content
-                        logger.info("Downloading train.py content")
-                        script_content = await attachment.read()
-                        script_content = script_content.decode('utf-8')
-                        logger.info("Successfully read train.py content")
-                        
-                        # Trigger GitHub Action
-                        run_id = await trigger_github_action(script_content)
-                        
-                        if run_id:
-                            logger.info(f"Successfully triggered workflow with run ID: {run_id}")
-                            await thread.send(f"GitHub Action triggered successfully! Run ID: {run_id}\nMonitoring progress...")
-                            
-                            # Monitor the workflow
-                            status, logs, url = await check_workflow_status(run_id, thread)
-                            
-                            # Send results back to Discord thread
-                            await thread.send(f"Training completed with status: {status}")
-                            
-                            # Split logs if they're too long for Discord's message limit
-                            if len(logs) > 1900:
-                                chunks = [logs[i:i+1900] for i in range(0, len(logs), 1900)]
-                                for i, chunk in enumerate(chunks):
-                                    await thread.send(f"```\nLogs (part {i+1}/{len(chunks)}):\n{chunk}\n```")
-                            else:
-                                await thread.send(f"```\nLogs:\n{logs}\n```")
-                            
-                            if url:
-                                await thread.send(f"View the full run at: {url}")
-                        else:
-                            logger.error("Failed to trigger GitHub Action")
-                            await thread.send("Failed to trigger GitHub Action. Please check the configuration.")
-                    
-                    except Exception as e:
-                        logger.error(f"Error processing request: {str(e)}", exc_info=True)
-                        await thread.send(f"Error processing request: {str(e)}")
-                    
-                    break
+        content = message.content.lower()
+        logger.info(f"Bot mentioned with message: {content}")
 
-            if not any(att.filename == "train.py" for att in message.attachments):
-                await message.reply("Please attach a file named 'train.py' to your message.")
+        if 'mockadd' in content:
+            logger.info("mockadd command received")
+            response = create_mock_entries()
+            await message.channel.send(response)
+            return
+        elif 'leaderboards' in content:
+            logger.info("leaderboards command received")
+            hardware_list = leaderboard.get_available_hardware()
+            if not hardware_list:
+                await message.channel.send("```md\n# No leaderboards available yet!\n```")
+                return
+            
+            output = [
+                "```md",
+                "# Available Leaderboards",
+                "===============================",
+                ""
+            ]
+            for idx, hw in enumerate(hardware_list, 1):
+                output.append(f"{idx}. {hw} CUDA Kernel Benchmarks")
+            output.append("")
+            output.append("```")
+            await message.channel.send("\n".join(output))
+            return
+        elif 'leaderboard' in content:
+            logger.info("leaderboard command received")
+            try:
+                parts = content.split('leaderboard')
+                if len(parts) > 1 and parts[1].strip():
+                    number = int(parts[1].strip())
+                    hardware_list = leaderboard.get_available_hardware()
+                    
+                    if not hardware_list:
+                        await message.channel.send("No leaderboards available yet!")
+                        return
+                    
+                    if number < 1 or number > len(hardware_list):
+                        await message.channel.send(f"Please select a number between 1 and {len(hardware_list)}")
+                        return
+                    
+                    hardware_name = hardware_list[number - 1]
+                    formatted_board = await leaderboard.format_discord_message(hardware_name)
+                    await message.channel.send(formatted_board)
+                else:
+                    await message.channel.send("Please specify a leaderboard number. Use '@bot leaderboards' to see available options.")
+            except ValueError:
+                await message.channel.send("Please provide a valid number after 'leaderboard'")
+            return
 
 # Run the bot
 if __name__ == "__main__":
