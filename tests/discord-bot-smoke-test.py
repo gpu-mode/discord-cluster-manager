@@ -1,9 +1,11 @@
+from dotenv import load_dotenv
 import discord
 import logging
 import os
 import argparse
 import asyncio
 import re
+import sys
 
 # Set up logging
 logging.basicConfig(
@@ -12,6 +14,10 @@ logging.basicConfig(
     datefmt='%Y-%m-%d %H:%M:%S'
 )
 logger = logging.getLogger(__name__)
+
+# Load environment variables
+load_dotenv()
+logger.info("Environment variables loaded")
 
 parser = argparse.ArgumentParser(
     description='Smoke Test for the Discord Cluster Bot',
@@ -42,16 +48,12 @@ client_tests_done = asyncio.Event()
 # Flag set to true if the thread tests pass
 thread_tests_passed = False
 
-async def test_thread_messages():
+async def verify_thread_messages():
     """
     Test messages from a Discord thread identified by a message ID.
 
-    Args:
-        client (discord.Client): the Discord client
-        message_id (int): the ID of the message under which to find thread messsages
-
     Side effect:
-    - Sets thread_tests_passed to True if all happy path messages are found
+        Sets thread_tests_passed to True if all happy path messages are found
     """
 
     global thread_tests_passed
@@ -60,7 +62,7 @@ async def test_thread_messages():
         "Found train.py! Starting training process",
         "GitHub Action triggered successfully! Run ID:",
         "Training completed with status: success",
-        ".*\nLogs.*:",
+        ".*```\nLogs.*:",
         "View the full run at:",
     ]
 
@@ -119,7 +121,7 @@ async def test_thread_messages():
 
 @client.event
 async def on_ready():
-    await test_thread_messages()
+    await verify_thread_messages()
 
     # We could add additional tests that use the client here if needed.
 
@@ -142,9 +144,10 @@ if __name__ == '__main__':
     asyncio.run(await_client_tests())
 
     if not thread_tests_passed:
-        # If other tests are needed, add `... and other_test_passed` above.
+        # If other tests are needed, add them above
+        #    if (not thread_test_passed) or (not other_test_passed):
         logger.warning("One or more tests failed!")
-        exit(1)
+        sys.exit(1)
     else:
         logger.info('All tests passed!')
-        exit(0)
+        sys.exit(0)
