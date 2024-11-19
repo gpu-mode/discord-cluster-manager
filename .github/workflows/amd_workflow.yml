@@ -1,0 +1,50 @@
+name: AMD PyTorch Job
+
+on:
+  workflow_dispatch:
+    inputs:
+      script_content:
+        description: 'Content of Python script'
+        required: true
+        type: string
+      filename:
+        description: 'Name of Python script'
+        required: true
+        type: string
+
+jobs:
+  train:
+    runs-on: [amdgpu-mi250-x86-64]
+    env:
+      VENV_DIR: /groups/aig_sharks/pytorch_venv
+    steps:
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Create script
+      shell: python
+      run: |
+        with open('${{ github.event.inputs.filename }}', 'w') as f:
+            f.write('''${{ github.event.inputs.script_content }}''')
+
+    - name: Setup Virtual Environment and Install Dependencies
+      run: |
+        python -m venv ${VENV_DIR}
+        source ${VENV_DIR}/bin/activate
+        pip install --upgrade pip
+        pip install --pre pytorch-triton-rocm==3.1.0+cf34004b8a torch==2.6.0.dev20241023+rocm6.2 --index-url https://download.pytorch.org/whl/nightly/rocm6.2
+
+    - name: Run script
+      run: |
+        python "${{ github.event.inputs.filename }}" > training.log 2>&1
+
+    - name: Upload training artifacts
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: training-artifacts
+        path: |
+          training.log
+          ${{ github.event.inputs.filename }}
