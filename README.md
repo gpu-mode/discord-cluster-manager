@@ -19,19 +19,25 @@ To run and develop the bot locally, you need to add it to your own server. Follo
 Here is a visual walk-through of the steps (after clicking on the New Application button):
 
 - The bot needs the `Message Content Intent` permission.
+  <details>
+    <summary>Click here for visual.</summary>
+    <img width="1440" alt="Screenshot 2024-11-24 at 10 44 46 AM" src="https://github.com/user-attachments/assets/7c873a9d-55b8-4aea-8c9a-9d2909405f03">
+  </details>
 
-  <img width="1440" alt="Screenshot 2024-11-24 at 10 44 46 AM" src="https://github.com/user-attachments/assets/7c873a9d-55b8-4aea-8c9a-9d2909405f03">
+- The bot also needs `applications.commands` and `bot` scopes.
 
-
-- The bot also needs `applications.commands` and `bot` scopes. 
-
-  <img width="1440" alt="Screenshot 2024-11-24 at 12 34 09 PM" src="https://github.com/user-attachments/assets/31302214-1d5a-416a-b7b4-93a44442be51">
-
+  <details>
+      <summary>Click here for visual.</summary>
+    <img width="1440" alt="Screenshot 2024-11-24 at 12 34 09 PM" src="https://github.com/user-attachments/assets/31302214-1d5a-416a-b7b4-93a44442be51">
+  </details>
 
 - The bot also needs to permissions to read and write messages which is easy to setup if you click on [this link](https://discord.com/api/oauth2/authorize?client_id=1303135152091697183&permissions=68608&scope=bot%20applications.commands). 
 Finally, generate an invite link for the bot and enter it into any browser.
 
-  <img width="1440" alt="Screenshot 2024-11-24 at 12 44 08 PM" src="https://github.com/user-attachments/assets/54c34b6b-c944-4ce7-96dd-e40cfe79ffb3">
+  <details>
+      <summary>Click here for visual.</summary>
+      <img width="1440" alt="Screenshot 2024-11-24 at 12 44 08 PM" src="https://github.com/user-attachments/assets/54c34b6b-c944-4ce7-96dd-e40cfe79ffb3">
+  </details>
 
 
 > [!NOTE]
@@ -47,13 +53,19 @@ After this, you should be able to create a `.env` file with the following enviro
 
 Below is where to find these environment variables:
 - **`DISCORD_DEBUG_TOKEN` or `DISCORD_TOKEN`**: Found in your bot's page within the [Discord Developer Portal](https://discord.com/developers/applications/):
-  
-  <img width="1440" alt="Screenshot 2024-11-24 at 11 01 19 AM" src="https://github.com/user-attachments/assets/b98bb4e0-8489-4441-83fb-256053aac34d">
 
+  <details>
+      <summary>Click here for visual.</summary>
+      <img width="1440" alt="Screenshot 2024-11-24 at 11 01 19 AM" src="https://github.com/user-attachments/assets/b98bb4e0-8489-4441-83fb-256053aac34d">
+  </details>
+  
 - **`DISCORD_DEBUG_CLUSTER_STAGING_ID` or `DISCORD_CLUSTER_STAGING_ID`**: Right-click your staging Discord server and select `Copy Server ID`:
-  
-  <img width="1440" alt="Screenshot 2024-11-24 at 10 58 27 AM" src="https://github.com/user-attachments/assets/0754438c-59ef-4db2-bcaa-c96106c16756">
 
+  <details>
+      <summary>Click here for visual.</summary>
+  <img width="1440" alt="Screenshot 2024-11-24 at 10 58 27 AM" src="https://github.com/user-attachments/assets/0754438c-59ef-4db2-bcaa-c96106c16756">
+  </details>
+  
 - **`GITHUB_TOKEN`**: Found in Settings -> Developer Settings (or [here](https://github.com/settings/tokens?type=beta)).
 
 ### How to run the bot
