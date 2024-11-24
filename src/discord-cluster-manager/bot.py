@@ -14,6 +14,7 @@ from consts import (
 )
 from cogs.modal_cog import ModalCog
 from cogs.github_cog import GitHubCog
+from cogs.verify_run_cog import VerifyRunCog
 
 logger = setup_logging()
 
@@ -38,6 +39,7 @@ class ClusterBot(commands.Bot):
             await self.add_cog(ModalCog(self))
             await self.add_cog(GitHubCog(self))
             await self.add_cog(BotManagerCog(self))
+            await self.add_cog(VerifyRunCog(self))
 
             guild_id = (
                 DISCORD_CLUSTER_STAGING_ID
