@@ -29,6 +29,7 @@ class ModalCog(commands.Cog):
         interaction: discord.Interaction,
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
+        use_followup: bool = False
     ):
         if not script.filename.endswith(".py") and not script.filename.endswith(".cu"):
             await interaction.response.send_message(
@@ -37,10 +38,15 @@ class ModalCog(commands.Cog):
             return
 
         thread = await self.bot.create_thread(interaction, gpu_type.name, "Modal Job")
+        message = f"Created thread {thread.mention} for your Modal job"
 
-        await interaction.response.send_message(
-            f"Created thread {thread.mention} for your Modal job"
-        )
+        if use_followup:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+            await interaction.followup.send(message)
+        else:
+            await interaction.response.send_message(message)
+
         await thread.send(f"Processing `{script.filename}` with {gpu_type.name}...")
 
         try:
