@@ -52,6 +52,7 @@ class ModalCog(commands.Cog):
             logger.error(f"Error processing request: {str(e)}", exc_info=True)
             await thread.send(f"Error processing request: {str(e)}")
 
+
     async def trigger_modal_run(self, script_content: str, filename: str) -> str:
         logger.info("Attempting to trigger Modal run")
 
@@ -62,13 +63,15 @@ class ModalCog(commands.Cog):
             with modal.enable_output():
                 with modal_app.run():
                     if filename.endswith(".py"):
-                        from modal_runner import run_script
+                        from modal_runner import run_pytorch_script
+                        result = run_pytorch_script.remote(script_content)
 
-                        result = run_script.remote(script_content)
                     elif filename.endswith(".cu"):
                         from modal_runner import run_cuda_script
                         result = run_cuda_script.remote(script_content)
+
                 return result
+            
         except Exception as e:
             logger.error(f"Error in trigger_modal_run: {str(e)}", exc_info=True)
             return f"Error: {str(e)}"
