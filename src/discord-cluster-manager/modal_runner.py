@@ -34,16 +34,16 @@ def timeout(seconds: int):
     gpu="T4", 
     image=Image.debian_slim(python_version="3.10").pip_install(["torch"])
 )
-def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> str:
+def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> tuple[str, float]:
     """
     Executes the provided PyTorch GPU kernel in an isolated environment with a timeout
 
     Args:
         script_content: The PyTorch script containing the GPU kernel to benchmark
-        timeout_seconds: Maximum execution time in seconds (default: 300 seconds)
+        timeout_seconds: Maximum execution time before timeout (default: 300 seconds)
 
     Returns:
-        str: Kernel output and Modal execution time in milliseconds
+        tuple[str, float]: (Kernel output, execution time in milliseconds)
 
     NOTE: Modal execution time is not programmatically accessible, so we manually calculate it
     """
@@ -67,12 +67,9 @@ def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> str:
 
             execution_end_time = time.perf_counter()
 
-            execution_time_sec = execution_end_time - execution_start_time
-            execution_time_ms = execution_time_sec * 1000
+            execution_time_ms = (execution_end_time - execution_start_time) * 1000
 
-            print(f"Execution time: {execution_time_ms:.8f} milliseconds")
-
-        return output.getvalue()
+        return output.getvalue(), execution_time_ms
 
     except TimeoutException as e:
         return f"Timeout Error: {str(e)}"
@@ -88,7 +85,7 @@ def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> str:
         "nvidia/cuda:12.6.0-devel-ubuntu24.04", add_python="3.11"
     ),
 )
-def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> str:
+def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> tuple[str, float]:
     """
     Executes the provided CUDA kernel in an isolated environment with a timeout
 
@@ -97,7 +94,7 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> str:
         timeout_seconds: Maximum execution time in seconds (default: 600 seconds)
 
     Returns:
-        str: Kernel output and Modal execution time in milliseconds
+        tuple[str, float]: (Kernel output, execution time in milliseconds)
 
     NOTE: Modal execution time is not programmatically accessible, so we manually calculate it
     """
@@ -136,9 +133,7 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> str:
             execution_time_sec = execution_end_time - execution_start_time
             execution_time_ms = execution_time_sec * 1000
 
-            print(f"Execution time: {execution_time_ms:.8f} milliseconds")
-
-            return run_process.stdout
+            return run_process.stdout, execution_time_ms
 
     except TimeoutException as e:
         return f"Timeout Error: {str(e)}"
