@@ -30,12 +30,12 @@ class ModalCog(commands.Cog):
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
         use_followup: bool = False
-    ):
+    ) -> discord.Thread:
         if not script.filename.endswith(".py") and not script.filename.endswith(".cu"):
             await interaction.response.send_message(
                 "Please provide a Python (.py) or CUDA (.cu) file"
             )
-            return
+            return None
 
         thread = await self.bot.create_thread(interaction, gpu_type.name, "Modal Job")
         message = f"Created thread {thread.mention} for your Modal job"
@@ -57,6 +57,8 @@ class ModalCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}", exc_info=True)
             await thread.send(f"Error processing request: {str(e)}")
+        finally:
+            return thread
 
     async def trigger_modal_run(self, script_content: str, filename: str) -> str:
         logger.info("Attempting to trigger Modal run")
