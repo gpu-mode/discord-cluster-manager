@@ -1,6 +1,6 @@
 from modal import App, Image
-import signal
 from contextlib import contextmanager
+import signal
 
 # Create a stub for the Modal app
 # IMPORTANT: This has to stay in separate file or modal breaks
@@ -31,21 +31,25 @@ def timeout(seconds: int):
 
 
 @modal_app.function(
-    gpu="T4", image=Image.debian_slim(python_version="3.10").pip_install(["torch"])
+    gpu="T4", 
+    image=Image.debian_slim(python_version="3.10").pip_install(["torch"])
 )
-def run_script(script_content: str, timeout_seconds: int = 300) -> str:
+def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> str:
     """
-    Executes the provided Python script in an isolated environment with a timeout
+    Executes the provided PyTorch GPU kernel in an isolated environment with a timeout
 
     Args:
-        script_content: The Python script to execute
-        timeout_seconds: Maximum execution time in seconds (default: 300 seconds / 5 minutes)
+        script_content: The PyTorch script containing the GPU kernel to benchmark
+        timeout_seconds: Maximum execution time in seconds (default: 300 seconds)
 
     Returns:
-        str: Output of the script or error message
+        str: Kernel output and Modal execution time in milliseconds
+
+    NOTE: Modal execution time is not programmatically accessible, so we manually calculate it
     """
     import sys
     from io import StringIO
+    import time
 
     # Capture stdout
     output = StringIO()
@@ -55,8 +59,19 @@ def run_script(script_content: str, timeout_seconds: int = 300) -> str:
         with timeout(timeout_seconds):
             # Create a new dictionary for local variables to avoid polluting the global namespace
             local_vars = {}
+            
+            execution_start_time = time.perf_counter()
+
             # Execute the script in the isolated namespace
             exec(script_content, {}, local_vars)
+
+            execution_end_time = time.perf_counter()
+
+            execution_time_sec = execution_end_time - execution_start_time
+            execution_time_ms = execution_time_sec * 1000
+
+            print(f"Execution time: {execution_time_ms:.8f} milliseconds")
+
         return output.getvalue()
 
     except TimeoutException as e:
@@ -74,20 +89,36 @@ def run_script(script_content: str, timeout_seconds: int = 300) -> str:
     ),
 )
 def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> str:
+    """
+    Executes the provided CUDA kernel in an isolated environment with a timeout
+
+    Args:
+        script_content: The CUDA script containing the GPU kernel
+        timeout_seconds: Maximum execution time in seconds (default: 600 seconds)
+
+    Returns:
+        str: Kernel output and Modal execution time in milliseconds
+
+    NOTE: Modal execution time is not programmatically accessible, so we manually calculate it
+    """
     import sys
     from io import StringIO
     import subprocess
     import os
+    import time
 
+    # Capture stdout
     output = StringIO()
     sys.stdout = output
 
     try:
         with timeout(timeout_seconds):
+            execution_start_time = time.perf_counter()
+
+            # Compile the CUDA code
             with open("script.cu", "w") as f:
                 f.write(script_content)
 
-            # Compile the CUDA code
             compile_process = subprocess.run(
                 ["nvcc", "script.cu", "-o", "script.out"],
                 capture_output=True,
@@ -100,6 +131,12 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> str:
             run_process = subprocess.run(
                 ["./script.out"], capture_output=True, text=True
             )
+            execution_end_time = time.perf_counter()
+
+            execution_time_sec = execution_end_time - execution_start_time
+            execution_time_ms = execution_time_sec * 1000
+
+            print(f"Execution time: {execution_time_ms:.8f} milliseconds")
 
             return run_process.stdout
 
