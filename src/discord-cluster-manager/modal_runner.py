@@ -72,9 +72,9 @@ def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> tuple
         return output.getvalue(), execution_time_ms
 
     except TimeoutException as e:
-        return f"Timeout Error: {str(e)}"
+        return f"Timeout Error: {str(e)}", 0.0
     except Exception as e:
-        return f"Error executing script: {str(e)}"
+        return f"Error executing script: {str(e)}", 0.0
     finally:
         sys.stdout = sys.__stdout__
 
@@ -123,7 +123,7 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> tuple[st
             )
 
             if compile_process.returncode != 0:
-                return f"Compilation Error:\n{compile_process.stderr}"
+                return f"Compilation Error:\n{compile_process.stderr}", 0.0
 
             run_process = subprocess.run(
                 ["./script.out"], capture_output=True, text=True
@@ -136,9 +136,9 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> tuple[st
             return run_process.stdout, execution_time_ms
 
     except TimeoutException as e:
-        return f"Timeout Error: {str(e)}"
+        return f"Timeout Error: {str(e)}", 0.0
     except Exception as e:
-        return f"Error: {str(e)}"
+        return f"Error: {str(e)}", 0.0
     finally:
         if os.path.exists("script.cu"):
             os.remove("script.cu")
