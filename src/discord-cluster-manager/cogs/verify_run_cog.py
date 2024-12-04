@@ -38,7 +38,7 @@ class VerifyRunCog(commands.Cog):
     async def verify_github_run(
             self, github_cog: GitHubCog,
             choice: app_commands.Choice,
-            interaction: discord.Interaction):
+            interaction: discord.Interaction) -> bool:
 
         github_command = github_cog.run_github
         github_thread = await github_command.callback(
@@ -65,6 +65,7 @@ class VerifyRunCog(commands.Cog):
         if all_patterns_found:
             await interaction.followup.send(
                 f"✅ GitHub run ({choice.name}) completed successfully - all expected messages found!")
+            return True
         else:
             missing_patterns = [
                 pattern for pattern in required_patterns
@@ -75,11 +76,12 @@ class VerifyRunCog(commands.Cog):
                 f"❌ GitHub run ({choice.name}) verification failed. Missing expected messages:\n" +
                 "\n".join(f"- {pattern}" for pattern in missing_patterns)
             )
+            return False
 
     async def verify_modal_run(
             self,
             modal_cog: ModalCog,
-            interaction: discord.Interaction):
+            interaction: discord.Interaction) -> bool:
 
         t4 = app_commands.Choice(name="NVIDIA T4", value="t4")
         modal_command = modal_cog.run_modal
@@ -104,6 +106,7 @@ class VerifyRunCog(commands.Cog):
         if all_patterns_found:
             await interaction.followup.send(
                 "✅ Modal run completed successfully - all expected messages found!")
+            return True
         else:
             missing_patterns = [
                 pattern for pattern in required_patterns
@@ -114,6 +117,7 @@ class VerifyRunCog(commands.Cog):
                 "❌ Modal run verification failed. Missing expected messages:\n" +
                 "\n".join(f"- {pattern}" for pattern in missing_patterns)
             )
+            return False
 
     @app_commands.command(name='verifyruns')
     async def verify_runs(self, interaction: discord.Interaction):
@@ -130,13 +134,18 @@ class VerifyRunCog(commands.Cog):
             nvidia = app_commands.Choice(name="NVIDIA", value="nvidia")
             amd = app_commands.Choice(name="AMD", value="amd")
 
-            await asyncio.gather(
+            results = await asyncio.gather(
                 self.verify_github_run(github_cog, nvidia, interaction),
                 self.verify_github_run(github_cog, amd, interaction),
                 self.verify_modal_run(modal_cog, interaction))
+            
+            if all(results):
+                await interaction.followup.send("✅ All runs completed successfully!")
+            else:
+                await interaction.followup.send("❌ Some runs failed! Consult messages above for details.")
 
         except Exception as e:
             logger.error(f"Error starting verification runs: {e}", exc_info=True)
             await interaction.followup.send(
-                f"❌ Error starting verification runs: {str(e)}"
+                f"❌ Problem performing verification runs: {str(e)}"
             )
