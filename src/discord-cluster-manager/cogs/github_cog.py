@@ -47,8 +47,6 @@ class GitHubCog(commands.Cog):
         message = f"Created thread {thread.mention} for your GitHub job"
 
         if use_followup:
-            if not interaction.response.is_done():
-                await interaction.response.defer()
             await interaction.followup.send(message)
         else:
             await interaction.response.send_message(message)

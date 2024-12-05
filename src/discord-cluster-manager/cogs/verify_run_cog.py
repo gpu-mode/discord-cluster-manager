@@ -124,6 +124,9 @@ class VerifyRunCog(commands.Cog):
         """Verify runs on on Modal, GitHub Nvidia, and GitHub AMD."""
 
         try:
+            if not interaction.response.is_done():
+                await interaction.response.defer()
+
             modal_cog = self.bot.get_cog('ModalCog')
             github_cog = self.bot.get_cog('GitHubCog')
 
