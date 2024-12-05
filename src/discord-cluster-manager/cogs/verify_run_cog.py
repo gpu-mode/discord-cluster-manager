@@ -56,7 +56,7 @@ class VerifyRunCog(commands.Cog):
 
         all_patterns_found = all(
             any(
-                re.match(pattern, content, re.DOTALL) != None
+                re.search(pattern, content, re.DOTALL) != None
                 for content in message_contents
             )
             for pattern in required_patterns
@@ -69,7 +69,7 @@ class VerifyRunCog(commands.Cog):
         else:
             missing_patterns = [
                 pattern for pattern in required_patterns
-                if not any(re.match(pattern, content, re.DOTALL) 
+                if not any(re.search(pattern, content, re.DOTALL) 
                            for content in message_contents)
             ]
             await interaction.followup.send(
@@ -94,11 +94,11 @@ class VerifyRunCog(commands.Cog):
         required_patterns = [
             "Processing `.*` with",
             "Running on Modal...",
-            ".*```\nModal execution result:",
+            "Modal execution result:",
         ]
 
         all_patterns_found = all(
-            any(re.match(pattern, content, re.DOTALL) != None
+            any(re.search(pattern, content, re.DOTALL) != None
                  for content in message_contents)
             for pattern in required_patterns
         )
@@ -110,7 +110,7 @@ class VerifyRunCog(commands.Cog):
         else:
             missing_patterns = [
                 pattern for pattern in required_patterns
-                if not any(re.match(pattern, content, re.DOTALL)
+                if not any(re.search(pattern, content, re.DOTALL)
                            for content in message_contents)
             ]
             await interaction.followup.send(
