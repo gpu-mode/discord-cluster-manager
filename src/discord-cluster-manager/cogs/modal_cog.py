@@ -17,15 +17,7 @@ class ModalCog(commands.Cog):
         )(self.run_modal)
 
 
-    @app_commands.describe(
-        script="The Python script file to run", gpu_type="Choose the GPU type for Modal"
-    )
-    @app_commands.choices(
-        gpu_type=[
-            app_commands.Choice(name="NVIDIA T4", value="t4"),
-        ]
-    )
-    async def run_modal(
+    async def internal_run_modal(
         self,
         interaction: discord.Interaction,
         script: discord.Attachment,
@@ -97,3 +89,21 @@ class ModalCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error in trigger_modal_run: {str(e)}", exc_info=True)
             return f"Error: {str(e)}", 0
+
+
+    @app_commands.describe(
+        script="The Python script file to run", gpu_type="Choose the GPU type for Modal"
+    )
+    @app_commands.choices(
+        gpu_type=[
+            app_commands.Choice(name="NVIDIA T4", value="t4"),
+        ]
+    )
+    async def run_modal(
+        self,
+        interaction: discord.Interaction,
+        script: discord.Attachment,
+        gpu_type: app_commands.Choice[str]
+    ) -> discord.Thread:
+        await self.internal_run_modal(interaction, script, gpu_type,
+                                use_followup=False)

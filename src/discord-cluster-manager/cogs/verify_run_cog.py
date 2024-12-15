@@ -84,10 +84,9 @@ class VerifyRunCog(commands.Cog):
             interaction: discord.Interaction) -> bool:
 
         t4 = app_commands.Choice(name="NVIDIA T4", value="t4")
-        modal_command = modal_cog.run_modal
 
-        modal_thread = await modal_command.callback(
-            modal_cog, interaction, script_file, t4, use_followup=True)
+        modal_thread = await modal_cog.internal_run_modal(
+            interaction, script_file, t4, use_followup=True)
 
         message_contents = [msg.content async for msg in modal_thread.history(limit=None)]
 
