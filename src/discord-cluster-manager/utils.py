@@ -2,7 +2,8 @@ import logging
 import subprocess
 import datetime
 import re
-from typing import TypedDict
+from typing import TypedDict, List
+import discord
 
 
 def setup_logging():
@@ -58,6 +59,19 @@ async def get_user_from_id(id, interaction, bot):
             return id
 
 
+async def send_discord_message(
+    interaction: discord.Interaction, msg: str, **kwargs
+) -> None:
+    """
+    To get around response messages in slash commands that are
+    called externally, send a message using the followup.
+    """
+    if interaction.response.is_done():
+        await interaction.followup.send(msg, **kwargs)
+    else:
+        await interaction.response.send_message(msg, **kwargs)
+
+
 def extract_score(score_str: str) -> float:
     """
     Extract score from output logs and push to DB (kind of hacky).
@@ -73,6 +87,7 @@ class LeaderboardItem(TypedDict):
     name: str
     deadline: datetime.datetime
     reference_code: str
+    gpu_types: List[str]
 
 
 class SubmissionItem(TypedDict):

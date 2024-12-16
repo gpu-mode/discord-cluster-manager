@@ -1,13 +1,17 @@
 import discord
+from discord import ui, SelectOption, Interaction
 from discord import app_commands
 from discord.ext import commands
+from discord.app_commands.errors import CommandInvokeError
 from datetime import datetime
 
 from typing import TYPE_CHECKING
 from consts import GitHubGPU, ModalGPU
-from utils import extract_score, get_user_from_id
+from utils import extract_score, get_user_from_id, setup_logging, send_discord_message
 
 import random
+
+logger = setup_logging()
 
 
 class LeaderboardSubmitCog(app_commands.Group):
@@ -23,8 +27,6 @@ class LeaderboardSubmitCog(app_commands.Group):
     @app_commands.describe(
         leaderboard_name="Name of the competition / kernel to optimize",
         script="The Python / CUDA script file to run",
-        dtype="dtype (e.g. FP32, BF16, FP4) that the input and output expects.",
-        shape="Data input shape as a tuple",
     )
     # TODO: Modularize this so all the write functionality is in here. Haven't figured
     # a good way to do this yet.
@@ -33,8 +35,6 @@ class LeaderboardSubmitCog(app_commands.Group):
         interaction: discord.Interaction,
         leaderboard_name: str,
         script: discord.Attachment,
-        dtype: app_commands.Choice[str] = None,
-        shape: app_commands.Choice[str] = None,
     ):
         pass
 
@@ -53,8 +53,6 @@ class LeaderboardSubmitCog(app_commands.Group):
         leaderboard_name: str,
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
-        dtype: app_commands.Choice[str] = "fp32",
-        shape: app_commands.Choice[str] = None,
     ):
         try:
             # Read the template file
@@ -110,8 +108,6 @@ class LeaderboardSubmitCog(app_commands.Group):
         leaderboard_name: str,
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
-        dtype: app_commands.Choice[str] = "fp32",
-        shape: app_commands.Choice[str] = None,
     ):
         # Read the template file
         submission_content = await script.read()
@@ -148,7 +144,6 @@ class LeaderboardSubmitCog(app_commands.Group):
                 return
 
             github_command = github_cog.run_github
-            print(github_command)
             try:
                 github_thread = await github_command.callback(
                     github_cog,
@@ -156,7 +151,6 @@ class LeaderboardSubmitCog(app_commands.Group):
                     script,
                     gpu_type,
                     reference_code=reference_code,
-                    use_followup=True,
                 )
             except discord.errors.NotFound as e:
                 print(f"Webhook not found: {e}")
@@ -180,7 +174,11 @@ class LeaderboardSubmitCog(app_commands.Group):
                     "submission_score": score,
                 })
 
-            user_id = interaction.user.global_name if interaction.user.nick is None else interaction.user.nick
+            user_id = (
+                interaction.user.global_name
+                if interaction.user.nick is None
+                else interaction.user.nick
+            )
             await interaction.followup.send(
                 "Successfully ran on GitHub runners!\n"
                 + f"Leaderboard '{leaderboard_name}'.\n"
@@ -195,10 +193,35 @@ class LeaderboardSubmitCog(app_commands.Group):
             )
 
 
+class GPUSelectionView(ui.View):
+    def __init__(self, available_gpus: list[str]):
+        super().__init__()
+
+        # Add the Select Menu with the list of GPU options
+        select = ui.Select(
+            placeholder="Select GPUs for this leaderboard...",
+            options=[SelectOption(label=gpu, value=gpu) for gpu in available_gpus],
+            min_values=1,  # Minimum number of selections
+            max_values=len(available_gpus),  # Maximum number of selections
+        )
+        select.callback = self.select_callback
+        self.add_item(select)
+
+    async def select_callback(self, interaction: Interaction):
+        # Retrieve the selected options
+        select = interaction.data["values"]
+        self.selected_gpus = select
+        await interaction.response.send_message(
+            f"Selected GPUs: {', '.join(self.selected_gpus)}",
+            ephemeral=True,
+        )
+        self.stop()
+
+
 class LeaderboardCog(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
-        self.get_leaderboards = bot.leaderboard_group.command(name="get")(
+        self.get_leaderboards = bot.leaderboard_group.command(name="list")(
             self.get_leaderboards
         )
         self.leaderboard_create = bot.leaderboard_group.command(
@@ -246,36 +269,71 @@ class LeaderboardCog(commands.Cog):
         deadline: str,
         reference_code: discord.Attachment,
     ):
+        # Try parsing with time first
         try:
-            # Try parsing with time first
+            date_value = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
+        except ValueError:
             try:
-                date_value = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
-            except ValueError:
-                # If that fails, try parsing just the date (will set time to 00:00)
                 date_value = datetime.strptime(deadline, "%Y-%m-%d")
+            except ValueError as ve:
+                logger.error(f"Value Error: {str(ve)}", exc_info=True)
+                await interaction.response.send_message(
+                    "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DD HH:MM",
+                    ephemeral=True,
+                )
+                return
 
+        # Ask the user to select GPUs
+        view = GPUSelectionView([gpu.name for gpu in GitHubGPU])
+
+        await send_discord_message(
+            interaction,
+            "Please select GPUs for this leaderboard:",
+            view=view,
+            ephemeral=True,
+        )
+
+        # Wait until the user makes a selection
+        await view.wait()
+
+        # Kind of messy, but separate date try/catch
+        try:
             # Read the template file
             template_content = await reference_code.read()
 
             with self.bot.leaderboard_db as db:
-                print(
-                    leaderboard_name,
-                    type(date_value),
-                    type(template_content.decode("utf-8")),
-                )
-                db.create_leaderboard({
+                err = db.create_leaderboard({
                     "name": leaderboard_name,
                     "deadline": date_value,
                     "reference_code": template_content.decode("utf-8"),
+                    "gpu_types": view.selected_gpus,
                 })
 
-            await interaction.response.send_message(
+                if err:
+                    if "duplicate key" in err:
+                        await interaction.followup.send(
+                            f'Error: Tried to create a leaderboard "{leaderboard_name}" that already exists.',
+                            ephemeral=True,
+                        )
+                    else:
+                        # Handle any other errors
+                        logger.error(f"Error in leaderboard creation: {err}")
+                        await interaction.followup.send(
+                            "Error in leaderboard creation.",
+                            ephemeral=True,
+                        )
+                    return
+
+            await interaction.followup.send(
                 f"Leaderboard '{leaderboard_name}'. Reference code: {reference_code}. Submission deadline: {date_value}",
                 ephemeral=True,
             )
-        except ValueError:
-            await interaction.response.send_message(
-                "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DD HH:MM",
+
+        except Exception as e:
+            logger.error(f"Error in leaderboard creation: {e}")
+            # Handle any other errors
+            await interaction.followup.send(
+                "Error in leaderboard creation.",
                 ephemeral=True,
             )
 
@@ -284,43 +342,51 @@ class LeaderboardCog(commands.Cog):
         self,
         interaction: discord.Interaction,
         leaderboard_name: str,
-        dtype: app_commands.Choice[str] = "fp32",
     ):
-        with self.bot.leaderboard_db as db:
-            # TODO: query that gets leaderboard id given leaderboard name
-            leaderboard_id = db.get_leaderboard(leaderboard_name)["id"]
-            if not leaderboard_id:
+        try:
+            with self.bot.leaderboard_db as db:
+                # TODO: query that gets leaderboard id given leaderboard name
+                leaderboard_id = db.get_leaderboard(leaderboard_name)["id"]
+                if not leaderboard_id:
+                    await interaction.response.send_message(
+                        f'Leaderboard "{leaderboard_name}" not found.', ephemeral=True
+                    )
+                    return
+
+                submissions = db.get_leaderboard_submissions(leaderboard_name)
+
+            if not submissions:
                 await interaction.response.send_message(
-                    "Leaderboard not found.", ephemeral=True
+                    f'No submissions found for "{leaderboard_name}".', ephemeral=True
                 )
                 return
 
-            # submissions = db.get_leaderboard_submissions(leaderboard_id)  # Add dtype
-            submissions = db.get_leaderboard_submissions(leaderboard_name)  # Add dtype
-
-        if not submissions:
-            await interaction.response.send_message(
-                "No submissions found.", ephemeral=True
-            )
-            return
-
-        # Create embed
-        embed = discord.Embed(
-            title=f'Leaderboard Submissions for "{leaderboard_name}"',
-            color=discord.Color.blue(),
-        )
-
-        for submission in submissions:
-            user_id = await get_user_from_id(
-                submission["user_id"], interaction, self.bot
-            )
-            print("members", interaction.guild.members)
-            print(user_id)
-
-            embed.add_field(
-                name=f"{user_id}: {submission['submission_name']}",
-                value=f"Submission speed: {submission['submission_score']}",
-                inline=False,
+            # Create embed
+            embed = discord.Embed(
+                title=f'Leaderboard Submissions for "{leaderboard_name}"',
+                color=discord.Color.blue(),
             )
 
-        await interaction.response.send_message(embed=embed)
+            for submission in submissions:
+                user_id = await get_user_from_id(
+                    submission["user_id"], interaction, self.bot
+                )
+
+                embed.add_field(
+                    name=f"{user_id}: {submission['submission_name']}",
+                    value=f"Submission speed: {submission['submission_score']}",
+                    inline=False,
+                )
+
+            await interaction.response.send_message(embed=embed)
+        except Exception as e:
+            logger.error(str(e))
+            if "'NoneType' object is not subscriptable" in str(e):
+                await interaction.response.send_message(
+                    f"The leaderboard '{leaderboard_name}' doesn't exist.",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.response.send_message(
+                    "An unknown error occurred.", ephemeral=True
+                )
