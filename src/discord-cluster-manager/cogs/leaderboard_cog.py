@@ -328,7 +328,8 @@ class LeaderboardCog(commands.Cog):
                     return
 
             await interaction.followup.send(
-                f"Leaderboard '{leaderboard_name}'. Reference code: {reference_code}. Submission deadline: {date_value}",
+                f"Leaderboard '{leaderboard_name}'.\n"
+                + f"Reference code: {reference_code}. Submission deadline: {date_value}",
                 ephemeral=True,
             )
 
