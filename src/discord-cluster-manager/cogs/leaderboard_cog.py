@@ -311,6 +311,7 @@ class LeaderboardCog(commands.Cog):
                     "gpu_types": view.selected_gpus,
                 })
 
+                print("HAHA", err)
                 if err:
                     if "duplicate key" in err:
                         await interaction.followup.send(

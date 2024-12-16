@@ -73,9 +73,8 @@ class LeaderboardDB:
             )
             self.connection.commit()
         except psycopg2.Error as e:
-            print(f"Error during leaderboard creation: {e}")
             self.connection.rollback()  # Ensure rollback if error occurs
-            return "Error during leaderboard creation."
+            return f"Error during leaderboard creation: {e}"
         return None
 
     def create_submission(self, submission: SubmissionItem):
