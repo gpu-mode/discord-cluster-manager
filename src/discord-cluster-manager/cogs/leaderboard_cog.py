@@ -124,8 +124,10 @@ class LeaderboardSubmitCog(app_commands.Group):
                 # TODO: query that gets reference code given leaderboard name
                 leaderboard_item = db.get_leaderboard(leaderboard_name)
                 if not leaderboard_item:
-                    await interaction.response.send_message(
-                        f"Leaderboard {leaderboard_name} not found.", ephemeral=True
+                    await send_discord_message(
+                        interaction,
+                        f"Leaderboard {leaderboard_name} not found.",
+                        ephemeral=True,
                     )
                     return
                 reference_code = leaderboard_item["reference_code"]
@@ -176,7 +178,8 @@ class LeaderboardSubmitCog(app_commands.Group):
                 if interaction.user.nick is None
                 else interaction.user.nick
             )
-            await interaction.followup.send(
+            await send_discord_message(
+                interaction,
                 "Successfully ran on GitHub runners!\n"
                 + f"Leaderboard '{leaderboard_name}'.\n"
                 + f"Submission title: {script.filename}.\n"
@@ -184,7 +187,8 @@ class LeaderboardSubmitCog(app_commands.Group):
                 + f"Runtime: {score} ms\n",
             )
         except ValueError:
-            await interaction.followup.send(
+            await send_discord_message(
+                interaction,
                 "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DD HH:MM",
                 ephemeral=True,
             )
@@ -208,7 +212,8 @@ class GPUSelectionView(ui.View):
         # Retrieve the selected options
         select = interaction.data["values"]
         self.selected_gpus = select
-        await interaction.response.send_message(
+        await send_discord_message(
+            interaction,
             f"Selected GPUs: {', '.join(self.selected_gpus)}",
             ephemeral=True,
         )
@@ -239,7 +244,9 @@ class LeaderboardCog(commands.Cog):
             leaderboards = db.get_leaderboards()
 
         if not leaderboards:
-            await interaction.followup.send("No leaderboards found.", ephemeral=True)
+            await send_discord_message(
+                interaction, "No leaderboards found.", ephemeral=True
+            )
             return
 
         # Create embed
@@ -252,7 +259,7 @@ class LeaderboardCog(commands.Cog):
                 name=lb["name"], value=f"Deadline: {deadline_str}", inline=False
             )
 
-        await interaction.followup.send(embed=embed)
+        await send_discord_message(interaction, embed=embed)
 
     @discord.app_commands.describe(
         leaderboard_name="Name of the leaderboard",
@@ -274,7 +281,8 @@ class LeaderboardCog(commands.Cog):
                 date_value = datetime.strptime(deadline, "%Y-%m-%d")
             except ValueError as ve:
                 logger.error(f"Value Error: {str(ve)}", exc_info=True)
-                await interaction.response.send_message(
+                await send_discord_message(
+                    interaction,
                     "Invalid date format. Please use YYYY-MM-DD or YYYY-MM-DD HH:MM",
                     ephemeral=True,
                 )
@@ -306,20 +314,23 @@ class LeaderboardCog(commands.Cog):
 
                 if err:
                     if "duplicate key" in err:
-                        await interaction.followup.send(
+                        await send_discord_message(
+                            interaction,
                             f'Error: Tried to create a leaderboard "{leaderboard_name}" that already exists.',
                             ephemeral=True,
                         )
                     else:
                         # Handle any other errors
                         logger.error(f"Error in leaderboard creation: {err}")
-                        await interaction.followup.send(
+                        await send_discord_message(
+                            interaction,
                             "Error in leaderboard creation.",
                             ephemeral=True,
                         )
                     return
 
-            await interaction.followup.send(
+            await send_discord_message(
+                interaction,
                 f"Leaderboard '{leaderboard_name}'.\n"
                 + f"Reference code: {reference_code}. Submission deadline: {date_value}",
                 ephemeral=True,
@@ -328,7 +339,8 @@ class LeaderboardCog(commands.Cog):
         except Exception as e:
             logger.error(f"Error in leaderboard creation: {e}")
             # Handle any other errors
-            await interaction.followup.send(
+            await send_discord_message(
+                interaction,
                 "Error in leaderboard creation.",
                 ephemeral=True,
             )
