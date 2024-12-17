@@ -5,7 +5,7 @@ import discord
 from consts import GitHubGPU, ModalGPU
 from discord import Interaction, SelectOption, app_commands, ui
 from discord.ext import commands
-from utils import extract_score, get_user_from_id, setup_logging
+from utils import extract_score, get_user_from_id, setup_logging, send_discord_message
 
 logger = setup_logging()
 
@@ -148,7 +148,6 @@ class LeaderboardSubmitCog(app_commands.Group):
                     script,
                     gpu_type,
                     reference_code=reference_code,
-                    use_followup=True,
                 )
             except discord.errors.NotFound as e:
                 print(f"Webhook not found: {e}")
@@ -284,18 +283,12 @@ class LeaderboardCog(commands.Cog):
         # Ask the user to select GPUs
         view = GPUSelectionView([gpu.name for gpu in GitHubGPU])
 
-        if interaction.response.is_done():
-            await interaction.followup.send(
-                "Please select GPUs for this leaderboard.",
-                view=view,
-                ephemeral=True,
-            )
-        else:
-            await interaction.response.send_message(
-                "Please select GPUs for this leaderboard.",
-                view=view,
-                ephemeral=True,
-            )
+        await send_discord_message(
+            interaction,
+            "Please select GPUs for this leaderboard.",
+            view=view,
+            ephemeral=True,
+        )
 
         await view.wait()
 
@@ -311,7 +304,6 @@ class LeaderboardCog(commands.Cog):
                     "gpu_types": view.selected_gpus,
                 })
 
-                print("HAHA", err)
                 if err:
                     if "duplicate key" in err:
                         await interaction.followup.send(

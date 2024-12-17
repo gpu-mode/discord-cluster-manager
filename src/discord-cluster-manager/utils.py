@@ -3,6 +3,7 @@ import logging
 import re
 import subprocess
 from typing import List, TypedDict
+import discord
 
 
 def setup_logging():
@@ -56,6 +57,19 @@ async def get_user_from_id(id, interaction, bot):
             return username
         else:
             return id
+
+
+async def send_discord_message(
+    interaction: discord.Interaction, msg: str, **kwargs
+) -> None:
+    """
+    To get around response messages in slash commands that are
+    called externally, send a message using the followup.
+    """
+    if interaction.response.is_done():
+        await interaction.followup.send(msg, **kwargs)
+    else:
+        await interaction.response.send_message(msg, **kwargs)
 
 
 def extract_score(score_str: str) -> float:
