@@ -311,7 +311,6 @@ class LeaderboardCog(commands.Cog):
                     "gpu_types": view.selected_gpus,
                 })
 
-                print("HAHA", err)
                 if err:
                     if "duplicate key" in err:
                         await interaction.followup.send(
@@ -340,6 +339,7 @@ class LeaderboardCog(commands.Cog):
                 "Error in leaderboard creation.",
                 ephemeral=True,
             )
+            
 
     @discord.app_commands.describe(leaderboard_name="Name of the leaderboard")
     async def get_leaderboard_submissions(
