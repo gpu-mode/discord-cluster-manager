@@ -259,7 +259,7 @@ class LeaderboardCog(commands.Cog):
                 name=lb["name"], value=f"Deadline: {deadline_str}", inline=False
             )
 
-        await send_discord_message(interaction, embed=embed)
+        await interaction.followup.send(interaction, embed=embed)
 
     @discord.app_commands.describe(
         leaderboard_name="Name of the leaderboard",

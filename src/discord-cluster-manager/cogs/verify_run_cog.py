@@ -48,7 +48,7 @@ class VerifyRunCog(commands.Cog):
     ) -> bool:
         github_command = github_cog.run_github
         github_thread = await github_command.callback(
-            github_cog, interaction, script_file, choice, use_followup=True
+            github_cog, interaction, script_file, choice
         )
 
         message_contents = [
@@ -98,7 +98,7 @@ class VerifyRunCog(commands.Cog):
         modal_command = modal_cog.run_modal
 
         modal_thread = await modal_command.callback(
-            modal_cog, interaction, script_file, t4, use_followup=True
+            modal_cog, interaction, script_file, t4
         )
 
         message_contents = [
