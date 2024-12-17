@@ -4,7 +4,7 @@ import discord
 import modal
 from discord import app_commands
 from discord.ext import commands
-from utils import setup_logging
+from utils import setup_logging, send_discord_message
 
 logger = setup_logging()
 
@@ -31,7 +31,6 @@ class ModalCog(commands.Cog):
         interaction: discord.Interaction,
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
-        use_followup: bool = False
     ) -> discord.Thread:
         thread = None
         try:
@@ -45,10 +44,7 @@ class ModalCog(commands.Cog):
             queue_start_time = time.perf_counter()
             message = f"Created thread {thread.mention} for your Modal job"
 
-            if use_followup:
-                await interaction.followup.send(message)
-            else:
-                await interaction.response.send_message(message)
+            await send_discord_message(interaction, message)
 
             await thread.send(f"**Processing `{script.filename}` with {gpu_type.name}...**")
 
