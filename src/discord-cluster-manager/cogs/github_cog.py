@@ -10,7 +10,7 @@ from discord import app_commands
 from discord.ext import commands
 from github import Github
 from leaderboard_eval import cu_eval, py_eval
-from utils import get_github_branch_name, setup_logging, send_discord_message
+from utils import get_github_branch_name, send_discord_message, setup_logging
 
 logger = setup_logging()
 
