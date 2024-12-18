@@ -35,7 +35,7 @@ class ModalCog(commands.Cog):
         thread = None
         try:
             if not script.filename.endswith(".py") and not script.filename.endswith(".cu"):
-                await interaction.response.send_message(
+                await send_discord_message(
                     "Please provide a Python (.py) or CUDA (.cu) file"
                 )
                 return None
