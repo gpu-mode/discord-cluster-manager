@@ -7,7 +7,7 @@ from cogs.github_cog import GitHubCog
 from cogs.modal_cog import ModalCog
 from discord import app_commands
 from discord.ext import commands
-from utils import setup_logging, send_discord_message
+from utils import send_discord_message, setup_logging
 
 logger = setup_logging()
 

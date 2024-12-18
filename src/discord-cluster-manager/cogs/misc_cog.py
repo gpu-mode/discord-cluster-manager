@@ -3,7 +3,7 @@ import psycopg2
 from consts import DATABASE_URL
 from discord import app_commands
 from discord.ext import commands
-from utils import setup_logging, send_discord_message
+from utils import send_discord_message, setup_logging
 
 logger = setup_logging()
 
