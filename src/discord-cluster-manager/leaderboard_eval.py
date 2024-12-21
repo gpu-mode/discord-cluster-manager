@@ -17,7 +17,7 @@ def check_implementation():
             ref_output = ref_kernel(input, dim=-1)
 
             if not torch.allclose(custom_output, ref_output, atol=1e-5):
-                print('mismatch found! custom implementation doesn't match reference.')
+                print('mismatch found! custom implementation doesnt match reference.')
                 return
 
     print('custom implementation matches the reference implementation.')
