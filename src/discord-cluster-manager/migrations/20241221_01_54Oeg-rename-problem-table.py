@@ -23,7 +23,7 @@ steps = [
 
     # Rename a column in leaderboard.submission:
     step("""
-         ALTER TABLE leaderboard.submission 
+         ALTER TABLE leaderboard.submission
          RENAME COLUMN problem_id
          TO leaderboard_id
          """),
