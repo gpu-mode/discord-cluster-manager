@@ -79,7 +79,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                 f"Ran on Modal. Leaderboard '{leaderboard_name}'.\n"
                 + f"Submission title: {script.filename}.\n"
                 + f"Submission user: {interaction.user.id}.\n"
-                + f"Runtime: {score} ms",
+                + f"Runtime: {score:.9f} seconds.",
                 ephemeral=True,
             )
         except ValueError:
