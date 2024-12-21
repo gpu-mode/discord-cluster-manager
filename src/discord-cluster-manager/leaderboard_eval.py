@@ -17,10 +17,10 @@ def check_implementation():
             ref_output = ref_kernel(input, dim=-1)
 
             if not torch.allclose(custom_output, ref_output, atol=1e-5):
-                print("mismatch found! custom implementation doesn't match reference.")
+                print('mismatch found! custom implementation doesn't match reference.')
                 return
 
-    print("custom implementation matches the reference implementation.")
+    print('custom implementation matches the reference implementation.')
 
 
 def metric():
@@ -28,7 +28,7 @@ def metric():
     timed_runs = 100
 
     # warmup
-    print("warming up...")
+    print('warming up...')
     for _ in range(warmup_runs):
         input_tensors = generate_input()
         for input in input_tensors:
@@ -36,7 +36,7 @@ def metric():
             _ = ref_kernel(input, dim=-1)
 
     # timing
-    print("timing custom implementation...")
+    print('timing custom implementation...')
     input_tensor = generate_input()
     start_time = time.time()
     for _ in range(timed_runs):
@@ -45,7 +45,7 @@ def metric():
 
     custom_duration = (time.time() - start_time) / timed_runs
 
-    print(f"submitted kernel runtime: {custom_duration:.4f} seconds")
+    print(f'submitted kernel runtime: {custom_duration:.4f} seconds')
 
     return custom_duration
 
