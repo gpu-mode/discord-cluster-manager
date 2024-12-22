@@ -12,11 +12,6 @@ from consts import (
     DISCORD_DEBUG_CLUSTER_STAGING_ID,
     DISCORD_DEBUG_TOKEN,
     DISCORD_TOKEN,
-    POSTGRES_DATABASE,
-    POSTGRES_HOST,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
-    POSTGRES_USER,
     init_environment,
 )
 from discord import app_commands
@@ -46,13 +41,7 @@ class ClusterBot(commands.Bot):
         )
         self.tree.add_command(self.leaderboard_group)
 
-        self.leaderboard_db = LeaderboardDB(
-            POSTGRES_HOST,
-            POSTGRES_DATABASE,
-            POSTGRES_USER,
-            POSTGRES_PASSWORD,
-            POSTGRES_PORT,
-        )
+        self.leaderboard_db = LeaderboardDB()
 
     async def setup_hook(self):
         logger.info(f"Syncing commands for staging guild {DISCORD_CLUSTER_STAGING_ID}")

@@ -1,46 +1,22 @@
 from typing import Optional
 
 import psycopg2
-from consts import (
-    DATABASE_URL,
-    POSTGRES_DATABASE,
-    POSTGRES_HOST,
-    POSTGRES_PASSWORD,
-    POSTGRES_PORT,
-    POSTGRES_USER,
-)
+from consts import DATABASE_URL
 from psycopg2 import Error
 from utils import LeaderboardItem, SubmissionItem
 
 
 class LeaderboardDB:
-    def __init__(
-        self,
-        host: str,
-        database: str,
-        user: str,
-        password: str,
-        port: str = "5432"
-    ):
-        """Initialize database connection parameters"""
-        self.connection_params = {
-            "host": host,
-            "database": database,
-            "user": user,
-            "password": password,
-            "port": port,
-        }
+    def __init__(self):
         self.connection: Optional[psycopg2.extensions.connection] = None
         self.cursor: Optional[psycopg2.extensions.cursor] = None
 
     def connect(self) -> bool:
         """Establish connection to the database"""
         try:
-            self.connection = (
-                psycopg2.connect(DATABASE_URL, sslmode="require")
-                if DATABASE_URL
-                else psycopg2.connect(**self.connection_params)
-            )
+            if not DATABASE_URL:
+                raise ValueError("DATABASE_URL is not defined.")
+            self.connection = psycopg2.connect(DATABASE_URL, sslmode="require")
             self.cursor = self.connection.cursor()
             return True
         except Error as e:
@@ -170,20 +146,6 @@ class LeaderboardDB:
 
 
 if __name__ == "__main__":
-    print(
-        POSTGRES_HOST,
-        POSTGRES_DATABASE,
-        POSTGRES_USER,
-        POSTGRES_PASSWORD,
-        POSTGRES_PORT,
-    )
-
-    leaderboard_db = LeaderboardDB(
-        POSTGRES_HOST,
-        POSTGRES_DATABASE,
-        POSTGRES_USER,
-        POSTGRES_PASSWORD,
-        POSTGRES_PORT,
-    )
+    leaderboard_db = LeaderboardDB()
     leaderboard_db.connect()
     leaderboard_db.disconnect()
