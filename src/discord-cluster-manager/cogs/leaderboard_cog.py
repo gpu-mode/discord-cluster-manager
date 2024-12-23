@@ -230,6 +230,42 @@ class GPUSelectionView(ui.View):
         self.stop()
 
 
+class DeleteConfirmationModal(ui.Modal, title="Confirm Deletion"):
+    def __init__(self, leaderboard_name: str, db):
+        super().__init__()
+        self.leaderboard_name = leaderboard_name
+        self.db = db
+        self.confirmation = ui.TextInput(
+            label=f"Type '{leaderboard_name}' to confirm deletion",
+            placeholder="Enter the leaderboard name",
+            required=True,
+        )
+        self.add_item(self.confirmation)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        if self.confirmation.value == self.leaderboard_name:
+            with self.db as db:
+                err = db.delete_leaderboard(self.leaderboard_name)
+                if err:
+                    await send_discord_message(
+                        interaction,
+                        "An error occurred while deleting the leaderboard.",
+                        ephemeral=True,
+                    )
+                else:
+                    await send_discord_message(
+                        interaction,
+                        f"Leaderboard '{self.leaderboard_name}' deleted.",
+                        ephemeral=True,
+                    )
+        else:
+            await send_discord_message(
+                interaction,
+                "Deletion cancelled: The leaderboard name didn't match.",
+                ephemeral=True,
+            )
+
+
 class LeaderboardCog(commands.Cog):
     def __init__(self, bot):
         self.bot: commands.Bot = bot
@@ -434,18 +470,8 @@ class LeaderboardCog(commands.Cog):
     @discord.app_commands.describe(leaderboard_name="Name of the leaderboard")
     @discord.app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
     async def delete_leaderboard(self, interaction: discord.Interaction, leaderboard_name: str):
-        with self.bot.leaderboard_db as db:
-            err = db.delete_leaderboard(leaderboard_name)
-
-            if err:
-                await send_discord_message(
-                    interaction,
-                    "An error occurred while deleting the leaderboard.",
-                    ephemeral=True,
-                )
-            else:
-                await send_discord_message(
-                    interaction,
-                    f"Leaderboard '{leaderboard_name}' deleted.",
-                    ephemeral=True,
-                )
+        modal = DeleteConfirmationModal(
+            leaderboard_name,
+            self.bot.leaderboard_db
+        )
+        await interaction.response.send_modal(modal)
