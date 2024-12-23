@@ -144,6 +144,41 @@ Below is where to find these environment variables:
 * `/ping` to check if the bot is online
 
 
+## Using the Leaderboard
+
+The main purpose of the Discord bot is to allow servers to host coding competitions through Discord. 
+The leaderboard was designed for evaluating GPU kernels, but can be adapted easily for other
+competitions. The rest of this section will mostly refer to leaderboard submissions in the context
+of our GPU Kernel competition.
+
+All leaderboard commands have the prefix `/leaderboard`, and center around creating, submitting to,
+and viewing leaderboard statistics and information.
+
+### Creating a new Leaderboard
+![Leaderboard creation command](assets/img/lb_creation.png)
+
+```
+/leaderboard create {name: str} {deadline: str} {reference_code: .cu or .py file}
+```
+
+The above command creates a leaderboard named `name` that ends at `deadline`. The `reference_code`
+has strict function signature requirements, and is required to contain an input generator and a
+reference implementation for the desired GPU kernel. We import these functions in our evaluation
+scripts for verifying leaderboard submissions and measuring runtime. In the next mini-section, we
+discuss the exact requirements for the `reference_code` script.
+
+
+#### Reference Code Requirements
+The Discord bot internally contains an `eval.py` script that 
+
+### Available Leaderboard Commands
+
+
+### GPU Kernel-specific Commands
+We plan to add support for the PyTorch profiler and CUDA NSight Compute CLI to allow users to
+profile their kernels. These commands are not specific to the leaderboard, but may be helpful for
+leaderboard submissions.
+
 ## How to test the bot
 
 Use the `/verifyruns` command to test basic functionality of the cluster bot. To check database connectivity, use the `/verifydb` command.
