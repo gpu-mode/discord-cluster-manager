@@ -425,7 +425,9 @@ class LeaderboardCog(commands.Cog):
             err = db.delete_leaderboard(leaderboard_name)
 
             if err:
-                await send_discord_message(interaction, f"Error: {err}", ephemeral=True)
+                await send_discord_message(
+                    interaction, "An error occurred while deleting the leaderboard.", ephemeral=True
+                )
             else:
                 await send_discord_message(
                     interaction,
