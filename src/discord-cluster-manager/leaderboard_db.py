@@ -14,14 +14,7 @@ from utils import LeaderboardItem, SubmissionItem
 
 
 class LeaderboardDB:
-    def __init__(
-        self,
-        host: str,
-        database: str,
-        user: str,
-        password: str,
-        port: str = "5432"
-    ):
+    def __init__(self, host: str, database: str, user: str, password: str, port: str = "5432"):
         """Initialize database connection parameters"""
         self.connection_params = {
             "host": host,
@@ -63,10 +56,7 @@ class LeaderboardDB:
         """Context manager exit"""
         self.disconnect()
 
-    def create_leaderboard(
-        self,
-        leaderboard: LeaderboardItem
-    ) -> Optional[None]:
+    def create_leaderboard(self, leaderboard: LeaderboardItem) -> Optional[None]:
         try:
             self.cursor.execute(
                 """
@@ -89,7 +79,7 @@ class LeaderboardDB:
                     INSERT INTO leaderboard.gpu_type (leaderboard_id, gpu_type)
                     VALUES (%s, %s)
                     """,
-                    (leaderboard_id, gpu_type)
+                    (leaderboard_id, gpu_type),
                 )
 
             self.connection.commit()
@@ -130,10 +120,22 @@ class LeaderboardDB:
             """
         )
 
-        return [
-            LeaderboardItem(id=lb[0], name=lb[1], deadline=lb[2], reference_code=lb[3])
-            for lb in self.cursor.fetchall()
-        ]
+        lbs = self.cursor.fetchall()
+        leaderboards = []
+
+        for lb in lbs:
+            self.cursor.execute(
+                "SELECT * from leaderboard.gpu_type where leaderboard_id = %s", [lb[0]]
+            )
+            gpu_types = [x[1] for x in self.cursor.fetchall()]
+
+            leaderboards.append(
+                LeaderboardItem(
+                    id=lb[0], name=lb[1], deadline=lb[2], reference_code=lb[3], gpu_types=gpu_types
+                )
+            )
+
+        return leaderboards
 
     def get_leaderboard(self, leaderboard_name: str) -> int | None:
         self.cursor.execute(
@@ -148,15 +150,11 @@ class LeaderboardDB:
         res = self.cursor.fetchone()
 
         if res:
-            return LeaderboardItem(
-                id=res[0], name=res[1], deadline=res[2], reference_code=res[3]
-            )
+            return LeaderboardItem(id=res[0], name=res[1], deadline=res[2], reference_code=res[3])
         else:
             return None
 
-    def get_leaderboard_submissions(
-        self, leaderboard_name: str
-    ) -> list[SubmissionItem]:
+    def get_leaderboard_submissions(self, leaderboard_name: str) -> list[SubmissionItem]:
         self.cursor.execute(
             """
             SELECT s.name, s.user_id, s.code, s.submission_time, s.score
