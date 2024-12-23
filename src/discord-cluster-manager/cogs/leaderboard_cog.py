@@ -232,6 +232,10 @@ class LeaderboardCog(commands.Cog):
             name="show", description="Get all submissions for a leaderboard"
         )(self.get_leaderboard_submissions)
 
+        self.delete_leaderboard = bot.leaderboard_group.command(
+            name="delete", description="Delete a leaderboard"
+        )(self.delete_leaderboard)
+
     async def get_leaderboards(self, interaction: discord.Interaction):
         """Display all leaderboards in a table format"""
         await interaction.response.defer()
@@ -413,4 +417,18 @@ class LeaderboardCog(commands.Cog):
             else:
                 await send_discord_message(
                     interaction, "An unknown error occurred.", ephemeral=True
+                )
+
+    @discord.app_commands.describe(leaderboard_name="Name of the leaderboard")
+    async def delete_leaderboard(self, interaction: discord.Interaction, leaderboard_name: str):
+        with self.bot.leaderboard_db as db:
+            err = db.delete_leaderboard(leaderboard_name)
+
+            if err:
+                await send_discord_message(interaction, f"Error: {err}", ephemeral=True)
+            else:
+                await send_discord_message(
+                    interaction,
+                    f"Leaderboard '{leaderboard_name}' deleted.",
+                    ephemeral=True,
                 )
