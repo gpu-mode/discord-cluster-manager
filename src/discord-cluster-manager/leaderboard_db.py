@@ -14,7 +14,14 @@ from utils import LeaderboardItem, SubmissionItem
 
 
 class LeaderboardDB:
-    def __init__(self, host: str, database: str, user: str, password: str, port: str = "5432"):
+    def __init__(
+        self,
+        host: str,
+        database: str,
+        user: str,
+        password: str,
+        port: str = "5432"
+    ):
         """Initialize database connection parameters"""
         self.connection_params = {
             "host": host,
@@ -56,7 +63,10 @@ class LeaderboardDB:
         """Context manager exit"""
         self.disconnect()
 
-    def create_leaderboard(self, leaderboard: LeaderboardItem) -> Optional[None]:
+    def create_leaderboard(
+        self,
+        leaderboard: LeaderboardItem
+    ) -> Optional[None]:
         try:
             self.cursor.execute(
                 """
@@ -154,7 +164,9 @@ class LeaderboardDB:
         else:
             return None
 
-    def get_leaderboard_submissions(self, leaderboard_name: str) -> list[SubmissionItem]:
+    def get_leaderboard_submissions(
+        self, leaderboard_name: str
+    ) -> list[SubmissionItem]:
         self.cursor.execute(
             """
             SELECT s.name, s.user_id, s.code, s.submission_time, s.score
