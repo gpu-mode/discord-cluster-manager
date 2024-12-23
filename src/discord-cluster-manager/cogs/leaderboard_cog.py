@@ -11,6 +11,18 @@ from utils import extract_score, get_user_from_id, send_discord_message, setup_l
 logger = setup_logging()
 
 
+async def leaderboard_name_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    """Return leaderboard names that match the current typed name"""
+    bot = interaction.client
+    with bot.leaderboard_db as db:
+        leaderboards = db.get_leaderboards()
+    filtered = [lb["name"] for lb in leaderboards if current.lower() in lb["name"].lower()]
+    return [app_commands.Choice(name=name, value=name) for name in filtered[:25]]
+
+
 class LeaderboardSubmitCog(app_commands.Group):
     def __init__(
         self,
@@ -420,13 +432,16 @@ class LeaderboardCog(commands.Cog):
                 )
 
     @discord.app_commands.describe(leaderboard_name="Name of the leaderboard")
+    @discord.app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
     async def delete_leaderboard(self, interaction: discord.Interaction, leaderboard_name: str):
         with self.bot.leaderboard_db as db:
             err = db.delete_leaderboard(leaderboard_name)
 
             if err:
                 await send_discord_message(
-                    interaction, "An error occurred while deleting the leaderboard.", ephemeral=True
+                    interaction,
+                    "An error occurred while deleting the leaderboard.",
+                    ephemeral=True,
                 )
             else:
                 await send_discord_message(
