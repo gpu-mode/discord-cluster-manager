@@ -1,4 +1,5 @@
 import random
+import textwrap
 from datetime import datetime
 
 import discord
@@ -6,7 +7,6 @@ from consts import GitHubGPU, ModalGPU
 from discord import Interaction, SelectOption, app_commands, ui
 from discord.ext import commands
 from utils import extract_score, get_user_from_id, send_discord_message, setup_logging
-import textwrap
 
 logger = setup_logging()
 
