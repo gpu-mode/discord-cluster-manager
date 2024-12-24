@@ -8,7 +8,7 @@ from yoyo import step
 __depends__ = {'20241222_01_ELxU5-add-gpu-types'}
 
 steps = [
-    # submission table    
+    # submission table
     step(
         """
         ALTER TABLE leaderboard.submission
