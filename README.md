@@ -15,9 +15,11 @@ The key idea is that we're using Github Actions as a job scheduling engine and p
   - [Usage Instructions](#usage-instructions)
 - [Using the Leaderboard](#using-the-leaderboard)
   - [Creating a New Leaderboard](#creating-a-new-leaderboard)
-    - [Reference Code Requirements](#reference-code-requirements)
-  - [Available Leaderboard Commands](#available-leaderboard-commands)
-  - [GPU Kernel-Specific Commands](#gpu-kernel-specific-commands)
+    - [Reference Code Requirements (Python)](#reference-code-requirements-python)
+    - [Reference Code Requirements (CUDA)](#reference-code-requirements-cuda)
+  - [Submitting to a Leaderboard](#submitting-to-a-leaderboard)
+  - [Other Available Leaderboard Commands](#other-available-leaderboard-commands)
+    - [GPU Kernel-Specific Commands](#gpu-kernel-specific-commands)
 - [Testing the Discord Bot](#testing-the-discord-bot)
 - [How to Add a New GPU to the Cluster](#how-to-add-a-new-gpu-to-the-cluster)
 - [Acknowledgements](#acknowledgements)
@@ -241,7 +243,7 @@ support multiple GPU types yet)
 /leaderboard show {name: str}
 ```
 
-### GPU Kernel-specific Commands
+#### GPU Kernel-specific Commands
 We plan to add support for the PyTorch profiler and CUDA NSight Compute CLI to allow users to
 profile their kernels. These commands are not specific to the leaderboard, but may be helpful for
 leaderboard submissions.
