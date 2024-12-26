@@ -180,7 +180,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                         "code": submission_content,
                         "user_id": interaction.user.id,
                         "submission_score": score,
-                         # TODO: Change this to multiple GPUs (see above)
+                        # TODO: Change this to multiple GPUs (see above)
                         "gpu_type": "nvidia",
                     }
                 )
@@ -423,7 +423,6 @@ class LeaderboardCog(commands.Cog):
         self,
         interaction: discord.Interaction,
         leaderboard_name: str,
-        # TODO add GPU type
     ):
         try:
             with self.bot.leaderboard_db as db:
