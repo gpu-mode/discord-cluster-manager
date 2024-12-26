@@ -169,8 +169,10 @@ The leaderboard was designed for evaluating GPU kernels, but can be adapted easi
 competitions. The rest of this section will mostly refer to leaderboard submissions in the context
 of our GPU Kernel competition.
 
-All leaderboard commands have the prefix `/leaderboard`, and center around creating, submitting to,
-and viewing leaderboard statistics and information. 
+
+> [!NOTE]
+> All leaderboard commands have the prefix `/leaderboard`, and center around creating, submitting to,
+> and viewing leaderboard statistics and information. 
 
 ### Creating a new Leaderboard
 ![Leaderboard creation command](assets/img/lb_creation.png)
