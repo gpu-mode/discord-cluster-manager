@@ -6,6 +6,10 @@ from discord import app_commands
 from discord.ext import commands
 from utils import send_discord_message, setup_logging
 
+# profiler imports
+from modal_runner import modal_app
+from modal_runner import run_profile_pytorch_script
+
 logger = setup_logging()
 
 class ModalCog(commands.Cog):
@@ -97,4 +101,68 @@ class ModalCog(commands.Cog):
 
         except Exception as e:
             logger.error(f"Error in trigger_modal_run: {str(e)}", exc_info=True)
+            return f"Error: {str(e)}", 0
+
+    @app_commands.command(name="profile", description="Profile using pytorch profiler")
+    @app_commands.describe(
+        script="The PyTorch model to profile",
+        gpu_type="Choose the GPU type for Modal"
+    )
+    @app_commands.choices(
+        gpu_type=[
+            app_commands.Choice(name="NVIDIA T4", value="t4"),
+        ]
+    )
+    async def profile_modal(
+        self,
+        interaction: discord.Interaction,
+        script: discord.Attachment,
+        gpu_type: app_commands.Choice[str],
+    ) -> discord.Thread:
+        thread = None
+        try:
+            if not script.filename.endswith(".py"):
+                await send_discord_message(
+                    interaction,
+                    "Please provide a Python (.py) file with PyTorch code to profile using the PyTorch profiler.",
+                    ephemeral=True
+                )
+                return None
+
+            thread = await self.bot.create_thread(interaction, f"{gpu_type.name}-{script.filename}-profile", "Modal Profiling")
+            message = f"Created thread {thread.mention} for your Modal profiling job"
+            
+            await send_discord_message(interaction, message)
+            await thread.send(f"**Profiling `{script.filename}` with {gpu_type.name}...**")
+            
+            script_content = (await script.read()).decode("utf-8")
+            status_msg = await thread.send("**Running profiler on Modal...**\n> ⏳ Waiting for available GPU...")
+            
+            result, execution_time_ms = await self.trigger_modal_profile(script_content)
+            
+            await status_msg.edit(content="**Running profiler on Modal...**\n> ✅ Profiling completed!")
+            await thread.send(f"**Profiling results:**\n```\n{result}\n```")
+            
+            return thread
+            
+        except Exception as e:
+            logger.error(f"Error processing profiling request: {str(e)}", exc_info=True)
+            if thread:
+                await status_msg.edit(content="**Running profiler on Modal...**\n> ❌ Profiling failed!")
+                await thread.send(f"**Error:** {str(e)}")
+            raise
+
+    async def trigger_modal_profile(self, script_content: str) -> tuple[str, float]:
+        logger.info("Attempting to trigger Modal profiling run")
+                
+        try:
+            print("Running profiler with Modal")
+            with modal.enable_output():
+                with modal_app.run():
+                    result, execution_time_ms = run_profile_pytorch_script.remote(script_content)
+                    
+            return result, execution_time_ms
+            
+        except Exception as e:
+            logger.error(f"Error in trigger_modal_profile: {str(e)}", exc_info=True)
             return f"Error: {str(e)}", 0

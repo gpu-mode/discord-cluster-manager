@@ -144,6 +144,46 @@ class VerifyRunCog(commands.Cog):
             )
             return False
 
+    async def verify_github_profile(
+        self, github_cog: GitHubCog, gpu_type: app_commands.Choice[str], interaction: discord.Interaction
+    ) -> bool:
+        github_thread = await github_cog.profile_github(
+            interaction, script_file, gpu_type
+        )
+
+        message_contents = [msg.content async for msg in github_thread.history(limit=None)]
+
+        required_patterns = [
+            "Profiling `.*` with",
+            "GitHub Action triggered!",
+            "Profiling completed with status:",
+            "Profiler output:",
+        ]
+
+        all_patterns_found = all(
+            any(re.search(pattern, content, re.DOTALL) is not None for content in message_contents)
+            for pattern in required_patterns
+        )
+
+        if all_patterns_found:
+            await send_discord_message(
+                interaction,
+                f"✅ GitHub {gpu_type.name} profiling completed successfully - all expected messages found!",
+            )
+            return True
+        else:
+            missing_patterns = [
+                pattern
+                for pattern in required_patterns
+                if not any(re.search(pattern, content, re.DOTALL) for content in message_contents)
+            ]
+            await send_discord_message(
+                interaction,
+                f"❌ GitHub {gpu_type.name} profiling verification failed. Missing expected messages:\n"
+                + "\n".join(f"- {pattern}" for pattern in missing_patterns),
+            )
+            return False
+
     @app_commands.command(name="verifyruns")
     async def verify_runs(self, interaction: discord.Interaction):
         """Verify runs on on Modal, GitHub Nvidia, and GitHub AMD."""

@@ -146,3 +146,58 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> tuple[st
         if os.path.exists("script.out"):
             os.remove("script.out")
         sys.stdout = sys.__stdout__
+
+
+def run_profile_pytorch_script(script_content: str, timeout_seconds: int = 300) -> tuple[str, float]:
+    """
+    Profiles the provided PyTorch script using torch.profiler
+    
+    Args:
+        script_content: The PyTorch script to profile
+        timeout_seconds: Maximum execution time before timeout
+        
+    Returns:
+        tuple[str, float]: (Profiler output, execution time in milliseconds)
+    """
+    import sys
+    import time
+    import torch
+    from io import StringIO
+    
+    output = StringIO()
+    sys.stdout = output
+    
+    try:
+        with timeout(timeout_seconds):
+            local_vars = {}
+            
+            profiler_script = """
+import torch
+from torch.profiler import profile, record_function, ProfilerActivity
+
+with profile(
+    activities=[
+        ProfilerActivity.CPU,
+        ProfilerActivity.CUDA,
+    ],
+    record_shapes=True,
+    profile_memory=True,
+    with_stack=True
+) as prof:
+    with record_function("model_inference"):
+{}
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+""".format('\n'.join('        ' + line for line in script_content.splitlines()))
+
+            execution_start_time = time.perf_counter()
+            exec(profiler_script, {}, local_vars)
+            execution_time_ms = (time.perf_counter() - execution_start_time) * 1000
+            
+        return output.getvalue(), execution_time_ms
+        
+    except TimeoutException as e:
+        return f"Timeout Error: {str(e)}", 0.0
+    except Exception as e:
+        return f"Error executing script: {str(e)}", 0.0
+    finally:
+        sys.stdout = sys.__stdout__

@@ -241,3 +241,86 @@ class GitHubCog(commands.Cog):
             return "No training artifacts found"
         except Exception as e:
             return f"Error downloading artifacts: {str(e)}"
+
+    @app_commands.command(name="profile", description="Profile using pytorch profiler on GitHub runners")
+    @app_commands.describe(
+        script="The PyTorch model to profile",
+        gpu_type="Choose the GPU type for GitHub Actions",
+    )
+    @app_commands.choices(
+        gpu_type=[
+            app_commands.Choice(name="NVIDIA", value="nvidia"),
+            app_commands.Choice(name="AMD", value="amd"),
+        ]
+    )
+    async def profile_github(
+        self,
+        interaction: discord.Interaction,
+        script: discord.Attachment,
+        gpu_type: app_commands.Choice[str],
+    ) -> discord.Thread:
+        if not script.filename.endswith(".py"):
+            await send_discord_message(
+                interaction,
+                "Please provide a Python (.py) file with PyTorch code to profile using the PyTorch profiler.",
+                ephemeral=True
+            )
+            return None
+
+        thread = await self.bot.create_thread(interaction, f"{gpu_type.name}-profile", "GitHub Profiling")
+        message = f"Created thread {thread.mention} for your GitHub profiling job"
+
+        await send_discord_message(interaction, message)
+        await thread.send(f"**Profiling `{script.filename}` with {gpu_type.name}...**")
+
+        try:
+            script_content = (await script.read()).decode("utf-8")
+            selected_gpu = GPUType.AMD if gpu_type.value == "amd" else GPUType.NVIDIA
+
+            profiler_script = """
+import torch
+from torch.profiler import profile, record_function, ProfilerActivity
+
+with profile(
+    activities=[
+        ProfilerActivity.CPU,
+        ProfilerActivity.CUDA,
+    ],
+    record_shapes=True,
+    profile_memory=True,
+    with_stack=True
+) as prof:
+    with record_function("model_inference"):
+{}
+print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+""".format('\n'.join('        ' + line for line in script_content.splitlines()))
+
+            run_id = await self.trigger_github_action(
+                profiler_script,
+                script.filename,
+                selected_gpu
+            )
+
+            if run_id:
+                await thread.send(f"GitHub Action triggered! Run ID: {run_id}\nMonitoring progress...")
+                status, logs, url = await self.check_workflow_status(run_id, thread)
+
+                await thread.send(f"Profiling completed with status: {status}")
+
+                if len(logs) > 1900:
+                    await self.bot.send_chunked_message(thread, logs, code_block=True)
+                else:
+                    await thread.send(f"```\nProfiler output:\n{logs}\n```")
+
+                if url:
+                    await thread.send(f"View the full run at: <{url}>")
+            else:
+                await thread.send("Failed to trigger GitHub Action. Please check the configuration.")
+
+            return thread
+
+        except Exception as e:
+            logger.error(f"Error processing profiling request: {str(e)}", exc_info=True)
+            if thread:
+                await thread.send(f"Error processing profiling request: {str(e)}")
+            raise
