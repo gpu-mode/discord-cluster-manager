@@ -195,7 +195,7 @@ The Discord bot internally contains an `eval.py` script that handles the correct
 analysis for the leaderboard. The `reference_code` that the leaderboard creator submits must have
 the following function signatures with their implementations filled out:
 
-```
+```python
 # Reference kernel implementation.
 def ref_kernel(input: torch.Tensor) -> torch.Tensor:
     # Implement me...
@@ -216,7 +216,7 @@ TODO. This is currently a work in progress.
 ```
 
 The leaderboard submission for *Python code* requires the following function signatures:
-```
+```python
 def custom_kernel(input: torch.Tensor) -> torch.Tensor:
 ```
 
