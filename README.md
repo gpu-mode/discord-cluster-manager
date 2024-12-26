@@ -217,7 +217,9 @@ TODO. This is currently a work in progress.
 
 The leaderboard submission for *Python code* requires the following function signatures:
 ```python
+# User kernel implementation.
 def custom_kernel(input: torch.Tensor) -> torch.Tensor:
+    # Implement me...
 ```
 
 
