@@ -175,7 +175,6 @@ of our GPU Kernel competition.
 > and viewing leaderboard statistics and information. 
 
 ### Creating a new Leaderboard
-![Leaderboard creation command](assets/img/lb_creation.png)
 
 ```
 /leaderboard create {name: str} {deadline: str} {reference_code: .cu or .py file}
