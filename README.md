@@ -168,7 +168,7 @@ competitions. The rest of this section will mostly refer to leaderboard submissi
 of our GPU Kernel competition.
 
 All leaderboard commands have the prefix `/leaderboard`, and center around creating, submitting to,
-and viewing leaderboard statistics and information.
+and viewing leaderboard statistics and information. 
 
 ### Creating a new Leaderboard
 ![Leaderboard creation command](assets/img/lb_creation.png)
@@ -183,12 +183,61 @@ reference implementation for the desired GPU kernel. We import these functions i
 scripts for verifying leaderboard submissions and measuring runtime. In the next mini-section, we
 discuss the exact requirements for the `reference_code` script.
 
+Each leaderboard `name` can also specify the types of hardware that users can run their kernels on.
+For example, a softmax kernel on an RTX 4090 can have different performance characteristics on an
+H100. After running the leaderboard creation command, a prompt will pop up where the creator can
+specify the available GPUs that the leaderboard evaluates on.
 
-#### Reference Code Requirements
-The Discord bot internally contains an `eval.py` script that 
+![Leaderboard GPU](assets/img/lb_gpu.png)
 
-### Available Leaderboard Commands
+#### Reference Code Requirements (Python)
+The Discord bot internally contains an `eval.py` script that handles the correctness and timing
+analysis for the leaderboard. The `reference_code` that the leaderboard creator submits must have
+the following function signatures with their implementations filled out:
 
+```
+# Reference kernel implementation.
+def ref_kernel(input: torch.Tensor) -> torch.Tensor:
+    # Implement me...
+
+# Generate a list of tensors as input to the kernel
+def generate_input() -> List[torch.Tensor]:
+    # Implement me...
+```
+
+
+#### Reference Code Requirements (CUDA)
+TODO. This is currently a work in progress.
+
+### Submitting to a Leaderboard
+
+```
+/leaderboard submit {github / modal} {leaderboard_name: str} {script: .cu or .py file}
+```
+
+The leaderboard submission for *Python code* requires the following function signatures:
+```
+def custom_kernel(input: torch.Tensor) -> torch.Tensor:
+```
+
+
+### Other Available Leaderboard Commands
+
+Deleting a leaderboard:
+```
+/leaderboard delete {name: str}
+```
+
+List all active leaderboards and which GPUs they can run on:
+```
+/leaderboard list
+```
+
+List all leaderboard scores (runtime) for a particular leaderboard. (currently deprecated. Doesn't
+support multiple GPU types yet)
+```
+/leaderboard show {name: str}
+```
 
 ### GPU Kernel-specific Commands
 We plan to add support for the PyTorch profiler and CUDA NSight Compute CLI to allow users to
