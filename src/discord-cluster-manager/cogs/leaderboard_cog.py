@@ -205,7 +205,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                 await send_discord_message(interaction, "❌ Required cogs not found!")
                 return
 
-            view = GPUSelectionView(gpus)
+            view = GPUSelectionView(gpus, interaction.user)
 
             await send_discord_message(
                 interaction,
@@ -243,8 +243,10 @@ class LeaderboardSubmitCog(app_commands.Group):
 
 
 class GPUSelectionView(ui.View):
-    def __init__(self, available_gpus: list[str]):
+    def __init__(self, available_gpus: list[str], original_user: discord.User):
         super().__init__()
+        self.original_user = original_user
+        self.selected_gpus = None
 
         # Add the Select Menu with the list of GPU options
         select = ui.Select(
@@ -256,14 +258,20 @@ class GPUSelectionView(ui.View):
         select.callback = self.select_callback
         self.add_item(select)
 
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user != self.original_user:
+            await interaction.response.send_message(
+                f"This selection menu is only for {self.original_user.name}!", ephemeral=True
+            )
+            return False
+        return True
+
     async def select_callback(self, interaction: Interaction):
         # Retrieve the selected options
         select = interaction.data["values"]
         self.selected_gpus = select
         await send_discord_message(
-            interaction,
-            f"Selected GPUs: {', '.join(self.selected_gpus)}",
-            ephemeral=True,
+            interaction, f"Selected GPUs: {', '.join(self.selected_gpus)}", ephemeral=True
         )
         self.stop()
 
@@ -391,7 +399,7 @@ class LeaderboardCog(commands.Cog):
                 return
 
         # Ask the user to select GPUs
-        view = GPUSelectionView([gpu.name for gpu in GitHubGPU])
+        view = GPUSelectionView([gpu.name for gpu in GitHubGPU], interaction.user)
 
         await send_discord_message(
             interaction,
@@ -477,7 +485,7 @@ class LeaderboardCog(commands.Cog):
             if not interaction.response.is_done():
                 await interaction.response.defer()
 
-            view = GPUSelectionView(gpus)
+            view = GPUSelectionView(gpus, interaction.user)
 
             await send_discord_message(
                 interaction,
