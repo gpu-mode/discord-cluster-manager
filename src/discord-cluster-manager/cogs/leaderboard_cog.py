@@ -260,10 +260,11 @@ class GPUSelectionView(ui.View):
         # Retrieve the selected options
         select = interaction.data["values"]
         self.selected_gpus = select
-        await send_discord_message(
-            interaction,
-            f"Selected GPUs: {', '.join(self.selected_gpus)}",
-            ephemeral=True,
+
+        # Edit the message to remove the view and update the content
+        await interaction.response.edit_message(
+            view=None,
+            delete_after=0.0001,  # Get rid of the original message
         )
         self.stop()
 
