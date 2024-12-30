@@ -266,6 +266,7 @@ class GPUSelectionView(ui.View):
             view=None,
             delete_after=0.0001,  # Get rid of the original message
         )
+        # Send a new message with the selected GPUs
         await send_discord_message(
             interaction,
             f"Selected GPUs: {', '.join(self.selected_gpus)}",
