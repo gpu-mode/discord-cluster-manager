@@ -161,14 +161,11 @@ Below is where to find these environment variables:
   <img width="1440" alt="Screenshot 2024-11-24 at 10 58 27 AM" src="https://github.com/user-attachments/assets/0754438c-59ef-4db2-bcaa-c96106c16756">
   </details>
 
-- `GITHUB_TOKEN`: Found in Settings -> Developer Settings (or [here](https://github.com/settings/tokens?type=beta)). Create a new (preferably classic) personal access token with scopes `repo` and `workflow`.
-
-  > ![IMPORTANT]
-  > Set the expiration date to any day less than a year from the current date.
+- `GITHUB_TOKEN`: Found in Settings -> Developer Settings (or [here](https://github.com/settings/tokens?type=beta)). Create a new (preferably classic) personal access token with an expiration date to any day less than a year from the current date, and the scopes `repo` and `workflow`.
 
   <details>
       <summary>Click here for visual.</summary>
-      <img width="1440" src="Screenshot 2024-12-30 at 8.51.59 AM.png">
+      <img width="1440" alt="Screenshot 2024-12-30 at 8 51 59 AM" src="https://github.com/user-attachments/assets/e3467871-bd2c-4f94-b0c5-c8a6ef5ce89e">
   </details>
 
 - `DATABASE_URL`: This contains the connection details for your local database, and has the form `postgresql://user:password@localhost/clusterdev`.
