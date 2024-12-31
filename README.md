@@ -253,24 +253,25 @@ analysis for the leaderboard. The difficult of CUDA evaluation scripts is we nee
 handle the typing system for tensors. The `reference.cu` that the leaderboard creator submits must have
 the following function signatures with their implementations filled out:
 
-The main difference is we now need to define an alias for the type that the input / output list of
-tensors take. A simple solution is to pre-define an array of `const int` sizes, then define an array
-of containers, e.g. `std::array<std::vector<float>, N_SIZES>`.
+The main difference is we now need to define an alias for the type that the input / outputs are. A
+simple and common example is a list of FP32 tensors, which can be defined using a pre-defined array of 
+`const int`s called `N_SIZES`, then define an array of containers, e.g. 
+`std::array<std::vector<float>, N_SIZES>`.
 
 ```cuda
-// (List of) Tensor types as input, e.g. using input_t = std::array<std::vector<float>, IN_SIZES>;
+// User-defined type for inputs, e.g. using input_t = std::array<std::vector<float>, IN_SIZES>;
 using input_t = ...;
 
-// (List of) Tensor types as outputs, e.g. using output_t = std::array<std::vector<float>, OUT_SIZES>;
+// User-defined type for outputs, e.g. using output_t = std::array<std::vector<float>, OUT_SIZES>;
 using output_t = ...;
 
-// Generate random (list of) tensors
+// Generate random data of type input_t
 input_t generate_input() {
     // Implement me...
 }
 
 
-// Reference kernel (over list of data), host code.
+// Reference kernel host code.
 output_t reference(input_t data) {
     // Implement me...
 }
