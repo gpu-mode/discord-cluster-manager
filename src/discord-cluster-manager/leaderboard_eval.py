@@ -12,6 +12,7 @@ from train import custom_kernel
 def correctness() -> bool:
     for _ in range(10):  # check multiple times
         input_tensors = generate_input()
+
         custom_output = custom_kernel(input_tensors)
         ref_output = ref_kernel(input_tensors)
 
@@ -32,12 +33,14 @@ def metric():
         input_tensors = generate_input()
         _ = custom_kernel(input_tensors)
         _ = ref_kernel(input_tensors)
+    torch.cuda.synchronize()
 
     # Timing Code
     input_tensors = generate_input()
     start_time = time.time()
     for _ in range(timed_runs):
         _ = custom_kernel(input_tensors)
+    torch.cuda.synchronize()
     end_time = time.time()
 
     custom_duration = (end_time - start_time) / timed_runs
