@@ -10,7 +10,9 @@ from cogs.verify_run_cog import VerifyRunCog
 from consts import (
     DISCORD_CLUSTER_STAGING_ID,
     DISCORD_DEBUG_CLUSTER_STAGING_ID,
+    DISCORD_DEBUG_LEADERBOARD_CATEGORY_ID,
     DISCORD_DEBUG_TOKEN,
+    DISCORD_LEADERBOARD_CATEGORY_ID,
     DISCORD_TOKEN,
     POSTGRES_DATABASE,
     POSTGRES_HOST,
@@ -81,6 +83,82 @@ class ClusterBot(commands.Bot):
         except Exception as e:
             logger.error(f"Failed to sync commands: {e}")
 
+    async def _setup_leaderboards(self):  # noqa: C901
+        lb_category_id = (
+            DISCORD_LEADERBOARD_CATEGORY_ID
+            if not self.debug_mode
+            else DISCORD_DEBUG_LEADERBOARD_CATEGORY_ID
+        )
+
+        if not lb_category_id:
+            logger.error(
+                "DISCORD_LEADERBOARD_CATEGORY_ID not found, please follow the instructions to create the category in the discord server and set the environment variable."  # noqa: E501
+            )
+            raise ValueError("DISCORD_LEADERBOARD_CATEGORY_ID not found")
+
+        self.leaderboard_category = discord.Object(id=int(lb_category_id))
+
+        category = await self.fetch_channel(lb_category_id)
+
+        forum_channel = None
+        submission_channel = None
+        general_channel = None
+        for channel in category.channels:
+            if channel.name == "leaderboard-central" and isinstance(channel, discord.ForumChannel):
+                forum_channel = channel
+            elif channel.name == "leaderboard-submissions" and isinstance(
+                channel, discord.TextChannel
+            ):
+                submission_channel = channel
+            elif channel.name == "leaderboard-general" and isinstance(channel, discord.TextChannel):
+                general_channel = channel
+
+        if not forum_channel:
+            forum_channel = await category.create_forum(
+                name="leaderboard-central", reason="Created for leaderboard management"
+            )
+
+        if not general_channel:
+            general_channel = await category.create_text_channel(
+                name="leaderboard-general", reason="Created for leaderboard general"
+            )
+
+        if not submission_channel:
+            submission_channel = await category.create_text_channel(
+                name="leaderboard-submissions", reason="Created for leaderboard submissions"
+            )
+
+        self.leaderboard_forum_id = forum_channel.id
+        self.leaderboard_submissions_id = submission_channel.id
+        self.leaderboard_general_id = general_channel.id
+
+        leaderboard_admin_role = None
+        for role in category.guild.roles:
+            if role.name == "Leaderboard Admin":
+                leaderboard_admin_role = role
+                break
+
+        if not leaderboard_admin_role:
+            leaderboard_admin_role = await category.guild.create_role(
+                name="Leaderboard Admin",
+                color=discord.Color.blue(),
+                reason="Created for leaderboard management",
+                permissions=discord.Permissions(
+                    manage_channels=True,
+                    manage_messages=True,
+                    manage_threads=True,
+                    view_channel=True,
+                    send_messages=True,
+                    manage_roles=True,
+                ),
+            )
+            logger.info(
+                f"Created leaderboard admin role: {leaderboard_admin_role.name}, please assign this role to the leaderboard admin group in the discord server."  # noqa: E501
+            )
+
+        # Store the role ID
+        self.leaderboard_admin_role_id = leaderboard_admin_role.id
+
     async def on_ready(self):
         logger.info(f"Logged in as {self.user}")
         for guild in self.guilds:
@@ -91,6 +169,8 @@ class ClusterBot(commands.Bot):
                     await guild.me.edit(nick="Cluster Bot")
             except Exception as e:
                 logger.warning(f"Failed to update nickname in guild {guild.name}: {e}")
+
+        await self._setup_leaderboards()
 
     async def create_thread(
         self, interaction: discord.Interaction, gpu_name: str, job_name: str
