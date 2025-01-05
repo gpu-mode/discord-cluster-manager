@@ -10,9 +10,7 @@ from cogs.verify_run_cog import VerifyRunCog
 from consts import (
     DISCORD_CLUSTER_STAGING_ID,
     DISCORD_DEBUG_CLUSTER_STAGING_ID,
-    DISCORD_DEBUG_LEADERBOARD_CATEGORY_ID,
     DISCORD_DEBUG_TOKEN,
-    DISCORD_LEADERBOARD_CATEGORY_ID,
     DISCORD_TOKEN,
     POSTGRES_DATABASE,
     POSTGRES_HOST,
@@ -84,21 +82,17 @@ class ClusterBot(commands.Bot):
             logger.error(f"Failed to sync commands: {e}")
 
     async def _setup_leaderboards(self):  # noqa: C901
-        lb_category_id = (
-            DISCORD_LEADERBOARD_CATEGORY_ID
-            if not self.debug_mode
-            else DISCORD_DEBUG_LEADERBOARD_CATEGORY_ID
-        )
+        assert len(self.guilds) == 1, "Bot must be in only one guild"
 
-        if not lb_category_id:
-            logger.error(
-                "DISCORD_LEADERBOARD_CATEGORY_ID not found, please follow the instructions to create the category in the discord server and set the environment variable."  # noqa: E501
+        guild = self.guilds[0]
+
+        category = discord.utils.get(guild.categories, name="Leaderboards")
+
+        if not category:
+            category = await guild.create_category(
+                name="Leaderboards", reason="Created for leaderboard management"
             )
-            raise ValueError("DISCORD_LEADERBOARD_CATEGORY_ID not found")
-
-        self.leaderboard_category = discord.Object(id=int(lb_category_id))
-
-        category = await self.fetch_channel(lb_category_id)
+            logger.info(f"Created new Leaderboards category with ID: {category.id}")
 
         forum_channel = None
         submission_channel = None
@@ -133,10 +127,12 @@ class ClusterBot(commands.Bot):
         self.leaderboard_general_id = general_channel.id
 
         leaderboard_admin_role = None
+        leaderboard_creator_role = None
         for role in category.guild.roles:
             if role.name == "Leaderboard Admin":
                 leaderboard_admin_role = role
-                break
+            elif role.name == "Leaderboard Creator":
+                leaderboard_creator_role = role
 
         if not leaderboard_admin_role:
             leaderboard_admin_role = await category.guild.create_role(
@@ -155,9 +151,18 @@ class ClusterBot(commands.Bot):
             logger.info(
                 f"Created leaderboard admin role: {leaderboard_admin_role.name}, please assign this role to the leaderboard admin group in the discord server."  # noqa: E501
             )
+        if not leaderboard_creator_role:
+            leaderboard_creator_role = await category.guild.create_role(
+                name="Leaderboard Creator",
+                color=discord.Color.blue(),
+                reason="Created for leaderboard management",
+            )
+            logger.info(
+                f"Created leaderboard creator role: {leaderboard_creator_role.name}, please assign this role to the leaderboard creator group in the discord server."  # noqa: E501
+            )
 
-        # Store the role ID
         self.leaderboard_admin_role_id = leaderboard_admin_role.id
+        self.leaderboard_creator_role_id = leaderboard_creator_role.id
 
     async def on_ready(self):
         logger.info(f"Logged in as {self.user}")
