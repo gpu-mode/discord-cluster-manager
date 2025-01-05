@@ -1,5 +1,4 @@
 import asyncio
-import random
 from datetime import datetime
 from io import StringIO
 from typing import Optional
@@ -122,6 +121,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
     ):
+        await interaction.response.defer(ephemeral=True)
         try:
             # Read the template file
             submission_content = await script.read()
@@ -129,12 +129,24 @@ class LeaderboardSubmitCog(app_commands.Group):
             # Call Modal runner
             modal_cog = self.bot.get_cog("ModalCog")
 
+            with self.bot.leaderboard_db as db:
+                leaderboard_item = db.get_leaderboard(leaderboard_name)
+                reference_code: bytes = leaderboard_item["reference_code"]
+
+            with open("/tmp/dcs/reference.py", "w") as f:
+                f.write(reference_code)
+
+            with open("/tmp/dcs/train.py", "w") as f:
+                f.write(submission_content.decode("utf-8"))
+
+            from modal_runner import app, run_python_submission
+
+            with app.run():
+                score = run_python_submission.remote()
+
             if not all([modal_cog]):
                 await send_discord_message(interaction, "❌ Required cogs not found!")
                 return
-
-            # Compute eval or submission score, call runner here.
-            score = random.random()
 
             with self.bot.leaderboard_db as db:
                 db.create_submission(
@@ -145,7 +157,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                         "code": submission_content,
                         "user_id": interaction.user.id,
                         "submission_score": score,
-                        "gpu_type": gpu_type.name,
+                        "gpu_type": "NVIDIA",
                     }
                 )
 
