@@ -210,7 +210,7 @@ class LeaderboardDB:
     def get_leaderboard(self, leaderboard_name: str) -> int | None:
         self.cursor.execute(
             """
-            SELECT id, name, deadline, reference_code
+            SELECT id, name, deadline, reference_code, creator_id
             FROM leaderboard.leaderboard
             WHERE name = %s
             """,
@@ -220,7 +220,13 @@ class LeaderboardDB:
         res = self.cursor.fetchone()
 
         if res:
-            return LeaderboardItem(id=res[0], name=res[1], deadline=res[2], reference_code=res[3])
+            return LeaderboardItem(
+                id=res[0],
+                name=res[1],
+                deadline=res[2],
+                reference_code=res[3],
+                creator_id=res[4],
+            )
         else:
             return None
 

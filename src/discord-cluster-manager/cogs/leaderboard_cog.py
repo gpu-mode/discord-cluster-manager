@@ -309,12 +309,22 @@ class LeaderboardCog(commands.Cog):
 
     async def admin_check(self, interaction: discord.Interaction) -> bool:
         if not interaction.user.get_role(self.bot.leaderboard_admin_role_id):
-            await interaction.response.send_message(
-                "You need the Leaderboard Admin role to use this command.",
-                ephemeral=True,
-            )
             return False
         return True
+
+    async def creator_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.get_role(self.bot.leaderboard_creator_role_id):
+            return True
+        return False
+
+    async def is_creator_check(
+        self, interaction: discord.Interaction, leaderboard_name: str
+    ) -> bool:
+        with self.bot.leaderboard_db as db:
+            leaderboard_item = db.get_leaderboard(leaderboard_name)
+            if leaderboard_item["creator_id"] == interaction.user.id:
+                return True
+            return False
 
     async def _display_lb_submissions_helper(
         self,
@@ -542,9 +552,18 @@ class LeaderboardCog(commands.Cog):
         deadline: str,
         reference_code: discord.Attachment,
     ):
-        if not await self.admin_check(interaction):
+        is_admin = await self.admin_check(interaction)
+        is_creator = await self.creator_check(interaction)
+
+        if not (is_admin or is_creator):
+            await send_discord_message(
+                interaction,
+                "You need the Leaderboard Creator role or the Leaderboard Admin role to use this command.",  # noqa: E501
+                ephemeral=True,
+            )
             return
 
+        # Try parsing with time first
         # Try parsing with time first
         try:
             date_value = datetime.strptime(deadline, "%Y-%m-%d %H:%M")
@@ -582,6 +601,7 @@ class LeaderboardCog(commands.Cog):
                         "deadline": date_value,
                         "reference_code": template_content.decode("utf-8"),
                         "gpu_types": view.selected_gpus,
+                        "creator_id": interaction.user.id,
                     }
                 )
 
@@ -676,8 +696,25 @@ class LeaderboardCog(commands.Cog):
     @discord.app_commands.describe(leaderboard_name="Name of the leaderboard")
     @discord.app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
     async def delete_leaderboard(self, interaction: discord.Interaction, leaderboard_name: str):
-        if not await self.admin_check(interaction):
-            return
+        is_admin = await self.admin_check(interaction)
+        is_creator = await self.creator_check(interaction)
+        is_creator_of_leaderboard = await self.is_creator_check(interaction, leaderboard_name)
+
+        if not (is_admin):
+            if not is_creator:
+                await send_discord_message(
+                    interaction,
+                    "You need the Leaderboard Creator role or the Leaderboard Admin role to use this command.",  # noqa: E501
+                    ephemeral=True,
+                )
+                return
+            if not is_creator_of_leaderboard:
+                await send_discord_message(
+                    interaction,
+                    "You need to be the creator of the leaderboard to use this command.",
+                    ephemeral=True,
+                )
+                return
 
         modal = DeleteConfirmationModal("leaderboard", leaderboard_name, self.bot.leaderboard_db)
         await interaction.response.send_modal(modal)
