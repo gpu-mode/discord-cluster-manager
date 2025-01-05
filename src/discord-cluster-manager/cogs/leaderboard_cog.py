@@ -633,10 +633,11 @@ class LeaderboardCog(commands.Cog):
                 thread = await forum_channel.create_thread(
                     name=leaderboard_name,
                     content=(
-                        f"# {leaderboard_name} Competition\n\n"
+                        f"# New Leaderboard: {leaderboard_name}\n\n"
                         f"**Deadline**: {date_value.strftime('%Y-%m-%d %H:%M')}\n\n"
+                        f"**Reference Code**: {reference_code}\n\n"
                         "Submit your entries using `/submit github` or `/submit modal` in the submissions channel.\n\n"  # noqa: E501
-                        "Good luck to all participants! 🚀"
+                        f"Good luck to all participants! 🚀 <@&{self.bot.leaderboard_participant_role_id}>"  # noqa: E501
                     ),
                     auto_archive_duration=10080,  # 7 days
                 )

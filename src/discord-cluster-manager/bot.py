@@ -126,16 +126,20 @@ class ClusterBot(commands.Bot):
 
         leaderboard_admin_role = None
         leaderboard_creator_role = None
+        leaderboard_participant_role = None
+
         for role in category.guild.roles:
             if role.name == "Leaderboard Admin":
                 leaderboard_admin_role = role
             elif role.name == "Leaderboard Creator":
                 leaderboard_creator_role = role
+            elif role.name == "Leaderboard Participant":
+                leaderboard_participant_role = role
 
         if not leaderboard_admin_role:
             leaderboard_admin_role = await category.guild.create_role(
                 name="Leaderboard Admin",
-                color=discord.Color.blue(),
+                color=discord.Color.purple(),
                 reason="Created for leaderboard management",
                 permissions=discord.Permissions(
                     manage_channels=True,
@@ -158,9 +162,19 @@ class ClusterBot(commands.Bot):
             logger.info(
                 f"Created leaderboard creator role: {leaderboard_creator_role.name}, please assign this role to the leaderboard creator group in the discord server."  # noqa: E501
             )
+        if not leaderboard_participant_role:
+            leaderboard_participant_role = await category.guild.create_role(
+                name="Leaderboard Participant",
+                color=discord.Color.pink(),
+                reason="Created for leaderboard management",
+            )
+            logger.info(
+                f"Created leaderboard participant role: {leaderboard_participant_role.name}, please assign this role to the leaderboard participant group in the discord server."  # noqa: E501
+            )
 
         self.leaderboard_admin_role_id = leaderboard_admin_role.id
         self.leaderboard_creator_role_id = leaderboard_creator_role.id
+        self.leaderboard_participant_role_id = leaderboard_participant_role.id
 
     async def on_ready(self):
         logger.info(f"Logged in as {self.user}")
