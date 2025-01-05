@@ -98,28 +98,26 @@ class ClusterBot(commands.Bot):
         submission_channel = None
         general_channel = None
         for channel in category.channels:
-            if channel.name == "leaderboard-central" and isinstance(channel, discord.ForumChannel):
+            if channel.name == "central" and isinstance(channel, discord.ForumChannel):
                 forum_channel = channel
-            elif channel.name == "leaderboard-submissions" and isinstance(
-                channel, discord.TextChannel
-            ):
+            elif channel.name == "submissions" and isinstance(channel, discord.TextChannel):
                 submission_channel = channel
-            elif channel.name == "leaderboard-general" and isinstance(channel, discord.TextChannel):
+            elif channel.name == "general" and isinstance(channel, discord.TextChannel):
                 general_channel = channel
 
         if not forum_channel:
             forum_channel = await category.create_forum(
-                name="leaderboard-central", reason="Created for leaderboard management"
+                name="central", reason="Created for leaderboard management"
             )
 
         if not general_channel:
             general_channel = await category.create_text_channel(
-                name="leaderboard-general", reason="Created for leaderboard general"
+                name="general", reason="Created for leaderboard general"
             )
 
         if not submission_channel:
             submission_channel = await category.create_text_channel(
-                name="leaderboard-submissions", reason="Created for leaderboard submissions"
+                name="submissions", reason="Created for leaderboard submissions"
             )
 
         self.leaderboard_forum_id = forum_channel.id
