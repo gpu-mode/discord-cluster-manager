@@ -199,7 +199,7 @@ class LeaderboardSubmitCog(app_commands.Group):
 
             await send_discord_message(
                 interaction,
-                f"Successfully ran on {view.selected_gpus[0].name} using Modal runners!\n"
+                f"Successfully ran on {view.selected_gpus[0]} using Modal runners!\n"
                 + f"Leaderboard '{leaderboard_name}'.\n"
                 + f"Submission title: {script.filename}.\n"
                 + f"Submission user: {user_id}.\n"

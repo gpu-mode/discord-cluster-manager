@@ -73,7 +73,7 @@ def timeout(seconds: int):
         signal.signal(signal.SIGALRM, original_handler)
 
 
-@app.function(gpu="T4", image=python_image, mounts=[mount])
+@app.function(gpu="T4", image=python_image)
 def run_pytorch_script(  # noqa: C901
     script_content: str,
     reference_content: Optional[str] = None,
@@ -109,12 +109,12 @@ def run_pytorch_script(  # noqa: C901
                 with open("train.py", "w") as f:
                     f.write(submission_content)
 
-            with open("/root/eval.py", "w") as f:
+            with open("eval.py", "w") as f:
                 f.write(script_content)
 
             execution_start_time = time.perf_counter()
             result = subprocess.run(
-                ["python", "/root/eval.py"],
+                ["python", "eval.py"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -144,18 +144,15 @@ def run_pytorch_script(  # noqa: C901
     except Exception as e:
         return f"Error executing script: {str(e)}", 0.0
     finally:
-        if os.path.exists("eval.py"):
-            os.remove("eval.py")
-        if os.path.exists("reference.py"):
-            os.remove("reference.py")
-        if os.path.exists("train.py"):
-            os.remove("train.py")
+        tmp_files = ["eval.py", "reference.py", "train.py"]
+        for f in tmp_files:
+            if os.path.exists(f):
+                os.remove(f)
 
 
 @app.function(
     gpu="T4",
     image=cuda_image,
-    mounts=[mount],
 )
 def run_cuda_script(  # # noqa: C901
     script_content: str,
@@ -195,11 +192,11 @@ def run_cuda_script(  # # noqa: C901
             NVCC_FILES = "eval.cu"
             # Write submission files to directory
             if reference_content is not None:
-                with open("/root/reference.cuh", "w") as f:
+                with open("reference.cuh", "w") as f:
                     f.write(reference_content)
 
             if submission_content is not None:
-                with open("/root/train.cuh", "w") as f:
+                with open("train.cuh", "w") as f:
                     f.write(submission_content)
 
             with open("eval.cu", "w") as f:
@@ -243,11 +240,7 @@ def run_cuda_script(  # # noqa: C901
     except Exception as e:
         return f"Error: {str(e)}", 0.0
     finally:
-        if os.path.exists("reference.cuh"):
-            os.remove("reference.cuh")
-        if os.path.exists("train.cuh"):
-            os.remove("train.cuh")
-        if os.path.exists("eval.cu"):
-            os.remove("eval.cu")
-        if os.path.exists("eval.out"):
-            os.remove("eval.out")
+        tmp_files = ["reference.cuh", "train.cuh", "eva;.cu", "eval.out"]
+        for f in tmp_files:
+            if os.path.exists(f):
+                os.remove(f)
