@@ -1,10 +1,17 @@
 import asyncio
+import os
 from datetime import datetime
 from io import StringIO
 from typing import Optional
 
 import discord
-from consts import GitHubGPU, ModalGPU
+from consts import (
+    MODAL_PATH,
+    MODAL_REFERENCE_CODE_PATH,
+    MODAL_SUBMISSION_CODE_PATH,
+    GitHubGPU,
+    ModalGPU,
+)
 from discord import app_commands
 from discord.ext import commands
 from leaderboard_db import leaderboard_name_autocomplete
@@ -123,6 +130,13 @@ class LeaderboardSubmitCog(app_commands.Group):
     ):
         await interaction.response.defer(ephemeral=True)
         try:
+            if not script.filename.endswith(".py") and not script.filename.endswith(".cu"):
+                await send_discord_message("Please provide a Python (.py) or CUDA (.cu) file")
+                return None
+
+            # TODO: please add this info to the LB itself
+            eval_code = cu_eval if script.filename.endswith(".cu") else py_eval
+
             # Read the template file
             submission_content = await script.read()
 
@@ -133,16 +147,29 @@ class LeaderboardSubmitCog(app_commands.Group):
                 leaderboard_item = db.get_leaderboard(leaderboard_name)
                 reference_code: bytes = leaderboard_item["reference_code"]
 
-            with open("/tmp/dcs/reference.py", "w") as f:
+            # view = GPUSelectionView(gpus)
+
+            # await send_discord_message(
+            #     interaction,
+            #     f"Please select GPUs to submit for leaderboard: {leaderboard_name}.",
+            #     view=view,
+            #     ephemeral=True,
+            # )
+
+            # await view.wait()
+
+            # Add reference and train code to Modal directory
+            os.makedirs(os.path.dirname(MODAL_PATH), exist_ok=True)
+            with open(MODAL_REFERENCE_CODE_PATH, "w") as f:
                 f.write(reference_code)
 
-            with open("/tmp/dcs/train.py", "w") as f:
+            with open(MODAL_SUBMISSION_CODE_PATH, "w") as f:
                 f.write(submission_content.decode("utf-8"))
 
-            from modal_runner import app, run_python_submission
+            from modal_runner import app, run_pytorch_script
 
             with app.run():
-                score = run_python_submission.remote()
+                stdout, score = run_pytorch_script.remote(eval_code)
 
             if not all([modal_cog]):
                 await send_discord_message(interaction, "❌ Required cogs not found!")
@@ -157,15 +184,22 @@ class LeaderboardSubmitCog(app_commands.Group):
                         "code": submission_content,
                         "user_id": interaction.user.id,
                         "submission_score": score,
-                        "gpu_type": "NVIDIA",
+                        "gpu_type": gpu_type.name,
                     }
                 )
 
+            user_id = (
+                interaction.user.global_name
+                if interaction.user.nick is None
+                else interaction.user.nick
+            )
+
             await send_discord_message(
                 interaction,
-                f"Ran on Modal. Leaderboard '{leaderboard_name}'.\n"
+                f"Successfully ran on {gpu_type.name} using Modal runners!\n"
+                + f"Leaderboard '{leaderboard_name}'.\n"
                 + f"Submission title: {script.filename}.\n"
-                + f"Submission user: {interaction.user.id}.\n"
+                + f"Submission user: {user_id}.\n"
                 + f"Runtime: {score:.9f} seconds.",
                 ephemeral=True,
             )

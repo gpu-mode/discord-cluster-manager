@@ -1,15 +1,26 @@
 import signal
+import subprocess
 from contextlib import contextmanager
 
+from consts import MODAL_PATH
 from modal import App, Image, Mount
 
 # Create a stub for the Modal app
 # IMPORTANT: This has to stay in separate file or modal breaks
 mount = Mount.from_local_dir(
-    "/tmp/dcs",
+    MODAL_PATH,
     remote_path="/root/",
 )
 app = App("discord-bot-runner")
+cuda_version = "12.6.0"
+flavor = "devel"
+operating_sys = "ubuntu24.04"
+tag = f"{cuda_version}-{flavor}-{operating_sys}"
+
+# Move this to another file later:
+python_image = Image.debian_slim(python_version="3.10").pip_install(["torch"])
+
+cuda_image = Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
 
 
 class TimeoutException(Exception):
@@ -35,7 +46,7 @@ def timeout(seconds: int):
         signal.signal(signal.SIGALRM, original_handler)
 
 
-@app.function(gpu="T4", image=Image.debian_slim(python_version="3.10").pip_install(["torch"]))
+@app.function(gpu="T4", image=python_image, mounts=[mount])
 def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> tuple[str, float]:
     """
     Executes the provided PyTorch GPU kernel in an isolated environment with a timeout
@@ -49,29 +60,41 @@ def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> tuple
 
     NOTE: Modal execution time is not programmatically accessible, so we manually calculate it
     """
+
     import sys
     import time
-    from io import StringIO
 
-    # Capture stdout
-    output = StringIO()
-    sys.stdout = output
+    with open("/root/eval.py", "w") as script_file:
+        script_file.write(script_content)
 
     try:
         with timeout(timeout_seconds):
-            # Create a new dictionary for local variables to avoid polluting the global namespace
-            local_vars = {}
-
             execution_start_time = time.perf_counter()
+            result = subprocess.run(
+                ["python", "/root/eval.py"],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=timeout_seconds,
+            )
 
-            # Execute the script in the isolated namespace
-            exec(script_content, {}, local_vars)
+            if result.returncode != 0:
+                raise RuntimeError(
+                    "Script execution failed with return code "
+                    + f"{result.returncode}:\n{result.stderr}"
+                )
 
-            execution_end_time = time.perf_counter()
+            score = None
+            for line in result.stdout.splitlines():
+                if line.startswith("score:"):
+                    score = float(line.split(":")[1].strip())
+                    return ("score", score)
 
-            execution_time_ms = (execution_end_time - execution_start_time) * 1000
+            if score is None:
+                execution_end_time = time.perf_counter()
+                score = execution_end_time - execution_start_time
 
-        return output.getvalue(), execution_time_ms
+        return result.stdout, score
 
     except TimeoutException as e:
         return f"Timeout Error: {str(e)}", 0.0
@@ -83,7 +106,7 @@ def run_pytorch_script(script_content: str, timeout_seconds: int = 300) -> tuple
 
 @app.function(
     gpu="T4",
-    image=Image.from_registry("nvidia/cuda:12.6.0-devel-ubuntu24.04", add_python="3.11"),
+    image=cuda_image,
 )
 def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> tuple[str, float]:
     """
@@ -143,64 +166,3 @@ def run_cuda_script(script_content: str, timeout_seconds: int = 600) -> tuple[st
         if os.path.exists("script.out"):
             os.remove("script.out")
         sys.stdout = sys.__stdout__
-
-
-@app.function(
-    gpu="T4",
-    image=Image.from_registry(
-        "nvidia/cuda:12.6.0-devel-ubuntu24.04", add_python="3.11"
-    ).pip_install(["torch"]),
-    mounts=[mount],
-)
-def run_python_submission() -> tuple[str, float]:
-    import time
-
-    import torch
-    from reference import check_implementation, generate_input, ref_kernel
-    from train import custom_kernel
-
-    def correctness() -> bool:
-        for _ in range(10):  # check multiple times
-            input_tensors = generate_input()
-
-            custom_output = custom_kernel(input_tensors)
-            ref_output = ref_kernel(input_tensors)
-
-            if not check_implementation(custom_output, ref_output):
-                return False
-
-        print("custom implementation matches the reference implementation.")
-        return True
-
-    def metric():
-        warmup_runs = 10
-        timed_runs = 100
-
-        # Warmup Code
-        print("warming up...")
-        for _ in range(warmup_runs):
-            input_tensors = generate_input()
-            _ = custom_kernel(input_tensors)
-            _ = ref_kernel(input_tensors)
-        torch.cuda.synchronize()
-
-        # Timing Code
-        input_tensors = generate_input()
-        start_time = time.time()
-        for _ in range(timed_runs):
-            _ = custom_kernel(input_tensors)
-        torch.cuda.synchronize()
-        end_time = time.time()
-
-        custom_duration = (end_time - start_time) / timed_runs
-
-        print(f"Submitted kernel runtime: {custom_duration:.4f} seconds")
-
-        return custom_duration
-
-    assert correctness()
-    s = metric()
-
-    print(f"score:{s}")
-
-    return s
