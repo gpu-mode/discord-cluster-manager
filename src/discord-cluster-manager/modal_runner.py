@@ -8,6 +8,8 @@ from modal import App, Image, Mount
 
 # Create a stub for the Modal app
 # IMPORTANT: This has to stay in separate file or modal breaks
+CUDA_FLAGS = "--std=c++17"
+INCLUDE_DIRS = "-I./ThunderKittens/include"
 mount = Mount.from_local_dir(
     MODAL_PATH,
     remote_path="/root/",
@@ -23,30 +25,28 @@ python_image = Image.debian_slim(python_version="3.10").pip_install(["torch"])
 
 cuda_image = (
     Image.from_registry(f"nvidia/cuda:{tag}", add_python="3.11")
-    # .apt_install(
-    #     "git",
-    #     "gcc-10",
-    #     "g++-10",
-    #     "clang",  # note i skip a step
-    # )
-    # .pip_install(  # required to build flash-attn
-    #     "ninja",
-    #     "packaging",
-    #     "wheel",
-    #     "torch",
-    # )
-    # .run_commands(
-    #     # this is what we suppose to do but I am doing a shortcut
-    #     # "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100
-    # --slave /usr/bin/g++ g++ /usr/bin/g++-10",
-    #     # "apt update",
-    #     # "apt  -y install clang-10", # this should be clang-10 but I can't get it to work yet
-    #     #
-    #     # "git clone https://github.com/HazyResearch/ThunderKittens.git",
-    #     "git clone https://github.com/BradleyBrown19/ThunderMonkeys.git",  # TK + custom kernel
-    #     force_build=True,  # always pull the latest
-    #     # "cd /ThunderKittens && pwd && python setup.py install",
-    # )
+    .apt_install(
+        "git",
+        "gcc-11",
+        "g++-11",
+        "clang-11",  # note i skip a step
+    )
+    .pip_install(
+        "ninja",
+        "packaging",
+        "wheel",
+        "torch",
+        "numpy",
+    )
+    .run_commands(
+        "update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 "
+        + "--slave /usr/bin/g++ g++ /usr/bin/g++-11",
+        # "apt update",
+        # "apt  -y install clang-10", # this should be clang-10 but I can't get it to work yet
+        #
+        "git clone https://github.com/HazyResearch/ThunderKittens.git",
+        # "cd /ThunderKittens && pwd && python setup.py install",
+    )
 )
 
 
@@ -146,6 +146,7 @@ def run_pytorch_script(  # noqa: C901
     finally:
         tmp_files = ["eval.py", "reference.py", "train.py"]
         for f in tmp_files:
+            break  # REMOVE LATER
             if os.path.exists(f):
                 os.remove(f)
 
@@ -204,7 +205,7 @@ def run_cuda_script(  # # noqa: C901
 
             execution_start_time = time.perf_counter()
             compile_process = subprocess.run(
-                ["nvcc", "--std=c++17", NVCC_FILES, "-o", "eval.out"],
+                ["nvcc", CUDA_FLAGS, INCLUDE_DIRS, NVCC_FILES, "-o", "eval.out"],
                 capture_output=True,
                 text=True,
             )

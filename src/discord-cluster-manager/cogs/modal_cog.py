@@ -1,9 +1,11 @@
 import time
+from typing import Optional
 
 import discord
 import modal
 from discord import app_commands
 from discord.ext import commands
+from leaderboard_eval import cu_eval, py_eval
 from utils import send_discord_message, setup_logging
 
 logger = setup_logging()
@@ -30,6 +32,8 @@ class ModalCog(commands.Cog):
         interaction: discord.Interaction,
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
+        reference_script: discord.Attachment = None,
+        reference_code: str = None,
     ) -> discord.Thread:
         thread = None
         try:
@@ -47,9 +51,25 @@ class ModalCog(commands.Cog):
                 "**Running on Modal...**\n> ⏳ Waiting for available GPU..."
             )
 
-            result, execution_time_ms = await self.trigger_modal_run(
-                script_content, script.filename
-            )
+            script_content = (await script.read()).decode("utf-8")
+            filename = "train.py" if script.filename.endswith(".py") else "train.cu"
+
+            if reference_script is not None or reference_code is not None:
+                reference_content = (
+                    reference_code
+                    if reference_code is not None
+                    else (await reference_script.read()).decode("utf-8")
+                )
+                result, score = await self.trigger_modal_run(
+                    script_content,
+                    filename,
+                    gpu_type.value,
+                    reference_content,
+                )
+            else:
+                result, score = await self.trigger_modal_run(
+                    script_content, filename, gpu_type.value
+                )
 
             # Update status message to show completion
             await status_msg.edit(content="**Running on Modal...**\n> ✅ Job completed!")
@@ -60,8 +80,9 @@ class ModalCog(commands.Cog):
             # Send metrics and results
             await thread.send(f"\n**Script size:** {len(script_content)} bytes")
             await thread.send(f"**Queue time:** {queue_time_ms:.3f} ms")
-            await thread.send(f"**Execution time:** {execution_time_ms:.3f} ms\n")
+            await thread.send(f"**Execution time:** {score:.3f} s\n")
             await thread.send(f"**Modal execution result:**\n```\n{result}\n```")
+            await thread.send(f"**score:{score:.9f}\n```")
 
             return thread
 
@@ -73,7 +94,13 @@ class ModalCog(commands.Cog):
                 await thread.send(f"**Error:** {str(e)}")
             raise
 
-    async def trigger_modal_run(self, script_content: str, filename: str) -> tuple[str, float]:
+    async def trigger_modal_run(
+        self,
+        script_content: str,
+        filename: str,
+        gpu_type: str,
+        reference_content: Optional[str] = None,
+    ) -> tuple[str, float]:
         logger.info("Attempting to trigger Modal run")
 
         from modal_runner import app
@@ -82,16 +109,34 @@ class ModalCog(commands.Cog):
             print(f"Running {filename} with Modal")
             with modal.enable_output():
                 with app.run():
-                    if filename.endswith(".py"):
-                        from modal_runner import run_pytorch_script
+                    if reference_content is not None:
+                        if filename.endswith(".py"):
+                            from modal_runner import run_pytorch_script
 
-                        result, execution_time_ms = run_pytorch_script.remote(script_content)
-                    elif filename.endswith(".cu"):
-                        from modal_runner import run_cuda_script
+                            stdout, score = run_pytorch_script.remote(
+                                py_eval,
+                                reference_content=reference_content,
+                                submission_content=script_content,
+                            )
+                        else:
+                            from modal_runner import run_cuda_script
 
-                        result, execution_time_ms = run_cuda_script.remote(script_content)
+                            stdout, score = run_cuda_script.remote(
+                                cu_eval,
+                                reference_content=reference_content,
+                                submission_content=script_content,
+                            )
+                    else:
+                        if filename.endswith(".py"):
+                            from modal_runner import run_pytorch_script
 
-            return result, execution_time_ms
+                            stdout, score = run_pytorch_script.remote(script_content)
+                        elif filename.endswith(".cu"):
+                            from modal_runner import run_cuda_script
+
+                            stdout, score = run_cuda_script.remote(script_content)
+
+            return stdout, score
 
         except Exception as e:
             logger.error(f"Error in trigger_modal_run: {str(e)}", exc_info=True)
