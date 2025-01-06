@@ -554,6 +554,14 @@ class LeaderboardCog(commands.Cog):
     ):
         is_admin = await self.admin_check(interaction)
         is_creator = await self.creator_check(interaction)
+        thread = None
+        if len(leaderboard_name) > 95:
+            await send_discord_message(
+                interaction,
+                "Leaderboard name is too long. Please keep it under 95 characters.",
+                ephemeral=True,
+            )
+            return
 
         if not (is_admin or is_creator):
             await send_discord_message(
