@@ -196,7 +196,7 @@ def modal_context():
     Usage:
         with hydrated_modal_runners() as runners:
             function = runners.get_runner("py", "t4")
-            stdout, score = function(reference_content, submission_content)
+            stdout, score = function(*args, **kwargs)
     """
     current_module = sys.modules[__name__]
 
