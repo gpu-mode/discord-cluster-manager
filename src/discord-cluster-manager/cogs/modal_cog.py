@@ -104,8 +104,7 @@ class ModalCog(commands.Cog):
                 await thread.send(f"**Error:** {str(e)}")
             raise
 
-    # TODO: needs cleaning with modal folks
-    async def trigger_modal_run(  # noqa: C901
+    async def trigger_modal_run(
         self,
         script_content: str,
         filename: str,
@@ -118,7 +117,6 @@ class ModalCog(commands.Cog):
 
         try:
             print(f"Running {filename} with Modal")
-            gpu_type = gpu_type.lower()
             file_type = filename.split(".")[-1]
             with modal.enable_output(), app.run(), modal_context() as runners:
                 if reference_content is not None:

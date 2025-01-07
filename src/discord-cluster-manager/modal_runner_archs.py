@@ -164,29 +164,17 @@ def run_pytorch_script_h100(
     )
 
 
-def _get_current_module_functions():
+def _get_runner_module_functions(prefix: str):
     current_module = sys.modules[__name__]
     return {
         name.split("_")[-1]: getattr(current_module, name)
         for name in dir(current_module)
-        if name.startswith("run_pytorch_script_")
+        if name.startswith(f"run_{prefix}_script_")
     }
 
 
-pytorch_function_map = _get_current_module_functions()
-
-
-# You can do the same for CUDA functions if needed
-def _get_cuda_functions():
-    current_module = sys.modules[__name__]
-    return {
-        name.split("_")[-1]: getattr(current_module, name)
-        for name in dir(current_module)
-        if name.startswith("run_cuda_script_")
-    }
-
-
-cuda_function_map = _get_cuda_functions()
+pytorch_function_map = _get_runner_module_functions("pytorch")
+cuda_function_map = _get_runner_module_functions("cuda")
 
 
 @contextmanager
