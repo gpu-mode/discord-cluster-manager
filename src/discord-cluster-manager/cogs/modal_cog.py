@@ -7,6 +7,16 @@ from consts import ModalGPU
 from discord import app_commands
 from discord.ext import commands
 from leaderboard_eval import cu_eval, py_eval
+from modal_runner_archs import (  # noqa: F401
+    run_cuda_script_a100,
+    run_cuda_script_h100,
+    run_cuda_script_l4,
+    run_cuda_script_t4,
+    run_pytorch_script_a100,
+    run_pytorch_script_h100,
+    run_pytorch_script_l4,
+    run_pytorch_script_t4,
+)
 from utils import send_discord_message, setup_logging
 
 logger = setup_logging()
