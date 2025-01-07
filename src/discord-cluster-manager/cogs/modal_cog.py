@@ -70,19 +70,25 @@ class ModalCog(commands.Cog):
                 result, score = await self.trigger_modal_run(
                     script_content, filename, gpu_type.value
                 )
+                queue_end_time = time.perf_counter()
+                queue_time = queue_end_time - queue_start_time
+
+                # Send metrics and results
+                await thread.send(f"\n**Script size:** {len(script_content)} bytes")
+                await thread.send(f"**Queue time:** {queue_time:.3f} s")
+                await thread.send(f"**Execution time:** {score:.3f} s\n")
+                await thread.send(f"**Modal execution result:**\n```\n{result}\n```")
+
+            if "check_implementation failed" in result:
+                await thread.send("check_implementation failed.\n")
+                await status_msg.edit(content="**Running on Modal...**\n> ❌ Job failed!")
+                return thread
+
+            if result is not None:
+                await thread.send(f"**score:{score:.9f}**\n```")
 
             # Update status message to show completion
             await status_msg.edit(content="**Running on Modal...**\n> ✅ Job completed!")
-
-            queue_end_time = time.perf_counter()
-            queue_time_ms = (queue_end_time - queue_start_time) * 1000
-
-            # Send metrics and results
-            await thread.send(f"\n**Script size:** {len(script_content)} bytes")
-            await thread.send(f"**Queue time:** {queue_time_ms:.3f} ms")
-            await thread.send(f"**Execution time:** {score:.3f} s\n")
-            await thread.send(f"**Modal execution result:**\n```\n{result}\n```")
-            await thread.send(f"**score:{score:.9f}\n```")
 
             return thread
 
@@ -136,6 +142,7 @@ class ModalCog(commands.Cog):
 
                             stdout, score = run_cuda_script.remote(script_content)
 
+            print(stdout, score)
             return stdout, score
 
         except Exception as e:

@@ -8,8 +8,21 @@ from modal import App, Image, Mount
 
 # Create a stub for the Modal app
 # IMPORTANT: This has to stay in separate file or modal breaks
-CUDA_FLAGS = "--std=c++17"
-INCLUDE_DIRS = "-I./ThunderKittens/include"
+CUDA_FLAGS = [
+    "--std=c++20",
+    "-DNDEBUG",
+    "-Xcompiler=-Wno-psabi",
+    "-Xcompiler=-fno-strict-aliasing",
+    "--expt-extended-lambda",
+    "--expt-relaxed-constexpr",
+    "-forward-unknown-to-host-compiler",
+    "--use_fast_math",
+    "-O3",
+    "-Xnvlink=--verbose",
+    "-Xptxas=--verbose",
+    "-Xptxas=--warn-on-spills",
+]
+INCLUDE_DIRS = ["-I/ThunderKittens/include"]
 mount = Mount.from_local_dir(
     MODAL_PATH,
     remote_path="/root/",
@@ -152,7 +165,7 @@ def run_pytorch_script(  # noqa: C901
 
 
 @app.function(
-    gpu="T4",
+    gpu="H100",
     image=cuda_image,
 )
 def run_cuda_script(  # # noqa: C901
@@ -191,6 +204,7 @@ def run_cuda_script(  # # noqa: C901
                 return "nvcc not found.", 0.0
 
             NVCC_FILES = "eval.cu"
+            ARCH = "-gencode=arch=compute_80,code=sm_80"
             # Write submission files to directory
             if reference_content is not None:
                 with open("reference.cuh", "w") as f:
@@ -205,16 +219,31 @@ def run_cuda_script(  # # noqa: C901
 
             execution_start_time = time.perf_counter()
             compile_process = subprocess.run(
-                ["nvcc", CUDA_FLAGS, INCLUDE_DIRS, NVCC_FILES, "-o", "eval.out"],
+                ["nvcc"] + CUDA_FLAGS + INCLUDE_DIRS + [ARCH, NVCC_FILES, "-o", "eval.out"],
                 capture_output=True,
                 text=True,
             )
             compilation_output = compile_process.stdout
             compilation_error = compile_process.stderr
+
+            print("running ls...")
+            subprocess.run(["ls", "."])
+
+            print("running ls /ThunderKittens/...")
+            subprocess.run(["ls", "/ThunderKittens/"])
+
+            print("running ls ThunderKittens/include/...")
+            subprocess.run(["ls", "/ThunderKittens/include"])
+
+            print(
+                "compile",
+                ["nvcc"] + CUDA_FLAGS + INCLUDE_DIRS + [ARCH, NVCC_FILES, "-o", "eval.out"],
+            )
             print("out", compilation_output)
             print("err", compilation_error)
 
             print("return code", compile_process.returncode)
+
             if compile_process.returncode != 0:
                 raise RuntimeError(
                     "CUDA compilation failed with return code "
@@ -224,22 +253,30 @@ def run_cuda_script(  # # noqa: C901
             run_process = subprocess.run(["./eval.out"], capture_output=True, text=True)
             execution_end_time = time.perf_counter()
 
+            print("run process stdout", run_process.stdout)
+
             score = None
             for line in run_process.stdout.splitlines():
                 if line.startswith("score:"):
                     score = float(line.split(":")[1].strip())
-                    return ("score", score)
+                    break
 
             if score is None:
                 execution_end_time = time.perf_counter()
                 score = execution_end_time - execution_start_time
+                return (
+                    "check_implementation failed"
+                    if "check_implementation failed" in run_process.stdout
+                    else None,
+                    score,
+                )  # To make sure error is thrown on LB
 
             return run_process.stdout, score
 
-    except TimeoutException as e:
-        return f"Timeout Error: {str(e)}", 0.0
-    except Exception as e:
-        return f"Error: {str(e)}", 0.0
+    except TimeoutException:
+        return None, 0.0
+    except Exception:
+        return None, 0.0
     finally:
         tmp_files = ["reference.cuh", "train.cuh", "eval.cu", "eval.out"]
         for f in tmp_files:

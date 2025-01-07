@@ -60,36 +60,50 @@ class LeaderboardSubmitCog(app_commands.Group):
 
         message_contents = [msg.content async for msg in discord_thread.history(limit=None)]
 
-        # Compute eval or submission score, call runner here.
-        # TODO: Make this more robust later
-        score = extract_score("".join(message_contents))
+        try:
+            # For CUDA leaderboards, make more robust
+            if "check_implementation failed" in message_contents:
+                raise Exception("check_implementation failed. User kernel is incorrect.")
 
-        with self.bot.leaderboard_db as db:
-            db.create_submission(
-                {
-                    "submission_name": script.filename,
-                    "submission_time": datetime.now(),
-                    "leaderboard_name": leaderboard_name,
-                    "code": submission_content,
-                    "user_id": interaction.user.id,
-                    "submission_score": score,
-                    "gpu_type": gpu,
-                }
+            # Compute eval or submission score, call runner here.
+            # TODO: Make this more robust later
+            score = extract_score("".join(message_contents))
+
+            with self.bot.leaderboard_db as db:
+                db.create_submission(
+                    {
+                        "submission_name": script.filename,
+                        "submission_time": datetime.now(),
+                        "leaderboard_name": leaderboard_name,
+                        "code": submission_content,
+                        "user_id": interaction.user.id,
+                        "submission_score": score,
+                        "gpu_type": gpu,
+                    }
+                )
+
+            user_id = (
+                interaction.user.global_name
+                if interaction.user.nick is None
+                else interaction.user.nick
             )
 
-        user_id = (
-            interaction.user.global_name if interaction.user.nick is None else interaction.user.nick
-        )
-
-        await send_discord_message(
-            interaction,
-            f"Successfully ran on {gpu} using {runner_name} runners!\n"
-            + f"Leaderboard '{leaderboard_name}'.\n"
-            + f"Submission title: {script.filename}.\n"
-            + f"Submission user: {user_id}.\n"
-            + f"Runtime: {score:.9f} seconds.",
-            ephemeral=True,
-        )
+            await send_discord_message(
+                interaction,
+                f"Successfully ran on {gpu} using {runner_name} runners!\n"
+                + f"Leaderboard '{leaderboard_name}'.\n"
+                + f"Submission title: {script.filename}.\n"
+                + f"Submission user: {user_id}.\n"
+                + f"Runtime: {score:.9f} seconds.",
+                ephemeral=True,
+            )
+        except Exception:
+            await send_discord_message(
+                interaction,
+                f"Leaderboard submission to '{leaderboard_name}' on {gpu} "
+                + f"using {runner_name} runners failed!\n",
+                ephemeral=True,
+            )
 
     async def select_gpu_view(
         self,
@@ -164,7 +178,7 @@ class LeaderboardSubmitCog(app_commands.Group):
             )
             return None
 
-        return (reference_code, gpus)
+        return (submission_content, reference_code, gpus)
 
     async def on_submit_hook(
         self,
@@ -173,12 +187,14 @@ class LeaderboardSubmitCog(app_commands.Group):
         script: discord.Attachment,
         command,
         cog: commands.Cog,
+        GPUsEnum: Enum,
+        runner_name: str,
     ) -> int:
         """
         Called as the main body of a submission to route to the correct runner.
         """
         try:
-            reference_code, gpus = await self.before_submit_hook(
+            submission_content, reference_code, gpus = await self.before_submit_hook(
                 interaction,
                 leaderboard_name,
                 script,
@@ -196,9 +212,11 @@ class LeaderboardSubmitCog(app_commands.Group):
                 script,
                 command,
                 reference_code,
-                reference_code,
+                submission_content,
                 cog,
                 gpu,
+                GitHubGPU,  # GPUsEnum, TODO: FIX ME LATER!,
+                runner_name,
             )
             for gpu in view.selected_gpus
         ]
@@ -253,6 +271,8 @@ class LeaderboardSubmitCog(app_commands.Group):
             script,
             modal_runner_command,
             modal_cog,
+            ModalGPU,
+            "Modal",
         )
         return success
 
@@ -276,8 +296,10 @@ class LeaderboardSubmitCog(app_commands.Group):
             interaction,
             leaderboard_name,
             script,
-            github_cog,
             gh_runner_command,
+            github_cog,
+            GitHubGPU,
+            "Modal",
         )
         return success
 
