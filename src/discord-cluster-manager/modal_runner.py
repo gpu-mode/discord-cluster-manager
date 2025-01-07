@@ -223,6 +223,8 @@ def run_cuda_script(  # # noqa: C901
                 capture_output=True,
                 text=True,
             )
+
+            ## FOR DEBUGGING
             compilation_output = compile_process.stdout
             compilation_error = compile_process.stderr
 
@@ -243,6 +245,7 @@ def run_cuda_script(  # # noqa: C901
             print("err", compilation_error)
 
             print("return code", compile_process.returncode)
+            ## FOR DEBUGGING
 
             if compile_process.returncode != 0:
                 raise RuntimeError(
