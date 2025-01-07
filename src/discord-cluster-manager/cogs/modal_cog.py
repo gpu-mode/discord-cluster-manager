@@ -120,20 +120,18 @@ class ModalCog(commands.Cog):
             print(f"Running {filename} with Modal")
             gpu_type = gpu_type.lower()
             file_type = filename.split(".")[-1]
-            with modal.enable_output():
-                with app.run():
-                    with modal_context() as runners:
-                        if reference_content is not None:
-                            eval_code = py_eval if file_type == "py" else cu_eval
-                            runner = runners.get_runner(file_type, gpu_type)
-                            stdout, score = runner.remote(
-                                eval_code,
-                                reference_content=reference_content,
-                                submission_content=script_content,
-                            )
-                        else:
-                            runner = runners.get_runner(file_type, gpu_type)
-                            stdout, score = runner.remote(script_content)
+            with modal.enable_output(), app.run(), modal_context() as runners:
+                if reference_content is not None:
+                    eval_code = py_eval if file_type == "py" else cu_eval
+                    runner = runners.get_runner(file_type, gpu_type)
+                    stdout, score = runner.remote(
+                        eval_code,
+                        reference_content=reference_content,
+                        submission_content=script_content,
+                    )
+                else:
+                    runner = runners.get_runner(file_type, gpu_type)
+                    stdout, score = runner.remote(script_content)
 
             return stdout, score
 
