@@ -122,118 +122,34 @@ class ModalCog(commands.Cog):
                 with app.run():
                     if reference_content is not None:
                         if filename.endswith(".py"):
-                            if gpu_type == "t4":
-                                from modal_runner_archs import run_pytorch_script_t4
+                            from modal_runner_archs import get_pytorch_modal_runner
 
-                                stdout, score = run_pytorch_script_t4.remote(
-                                    py_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            elif gpu_type == "l4":
-                                from modal_runner_archs import run_pytorch_script_l4
-
-                                stdout, score = run_pytorch_script_l4.remote(
-                                    py_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            elif gpu_type == "a100":
-                                from modal_runner_archs import run_pytorch_script_a100
-
-                                stdout, score = run_pytorch_script_a100.remote(
-                                    py_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            elif gpu_type == "h100":
-                                from modal_runner_archs import run_pytorch_script_h100
-
-                                stdout, score = run_pytorch_script_h100.remote(
-                                    py_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            else:
-                                # Throw error?
-                                stdout, score = None, None
+                            modal_runner = get_pytorch_modal_runner(gpu_type)
+                            stdout, score = modal_runner.remote(
+                                py_eval,
+                                reference_content=reference_content,
+                                submission_content=script_content,
+                            )
                         else:
-                            if gpu_type == "t4":
-                                from modal_runner_archs import run_cuda_script_t4
+                            from modal_runner_archs import get_cuda_modal_runner
 
-                                stdout, score = run_cuda_script_t4.remote(
-                                    cu_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            elif gpu_type == "l4":
-                                from modal_runner_archs import run_cuda_script_l4
-
-                                stdout, score = run_cuda_script_l4.remote(
-                                    cu_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            elif gpu_type == "a100":
-                                from modal_runner_archs import run_cuda_script_a100
-
-                                stdout, score = run_cuda_script_a100.remote(
-                                    cu_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            elif gpu_type == "h100":
-                                from modal_runner_archs import run_cuda_script_h100
-
-                                stdout, score = run_cuda_script_h100.remote(
-                                    cu_eval,
-                                    reference_content=reference_content,
-                                    submission_content=script_content,
-                                )
-                            else:
-                                # Throw error?
-                                stdout, score = None, None
+                            modal_runner = get_cuda_modal_runner(gpu_type)
+                            stdout, score = modal_runner.remote(
+                                cu_eval,
+                                reference_content=reference_content,
+                                submission_content=script_content,
+                            )
                     else:
                         if filename.endswith(".py"):
-                            if gpu_type == "t4":
-                                from modal_runner_archs import run_pytorch_script_t4
+                            from modal_runner_archs import get_pytorch_modal_runner
 
-                                stdout, score = run_pytorch_script_t4.remote(script_content)
-                            elif gpu_type == "l4":
-                                from modal_runner_archs import run_pytorch_script_l4
-
-                                stdout, score = run_pytorch_script_l4.remote(script_content)
-                            elif gpu_type == "a100":
-                                from modal_runner_archs import run_pytorch_script_a100
-
-                                stdout, score = run_pytorch_script_a100.remote(script_content)
-                            elif gpu_type == "h100":
-                                from modal_runner_archs import run_pytorch_script_h100
-
-                                stdout, score = run_pytorch_script_h100.remote(script_content)
-                            else:
-                                # Throw error?
-                                stdout, score = None, None
+                            modal_runner = get_pytorch_modal_runner(gpu_type)
+                            stdout, score = modal_runner.remote(script_content)
                         elif filename.endswith(".cu"):
-                            if gpu_type == "t4":
-                                from modal_runner_archs import run_cuda_script_t4
+                            from modal_runner_archs import get_cuda_modal_runner
 
-                                stdout, score = run_cuda_script_t4.remote(script_content)
-                            elif gpu_type == "l4":
-                                from modal_runner_archs import run_cuda_script_l4
-
-                                stdout, score = run_cuda_script_l4.remote(script_content)
-                            elif gpu_type == "a100":
-                                from modal_runner_archs import run_cuda_script_a100
-
-                                stdout, score = run_cuda_script_a100.remote(script_content)
-                            elif gpu_type == "h100":
-                                from modal_runner_archs import run_cuda_script_h100
-
-                                stdout, score = run_cuda_script_h100.remote(script_content)
-                            else:
-                                # Throw error?
-                                stdout, score = None, None
+                            modal_runner = get_cuda_modal_runner(gpu_type)
+                            stdout, score = modal_runner.remote(script_content)
 
             return stdout, score
 
