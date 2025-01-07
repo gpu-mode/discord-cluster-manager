@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import discord
 from consts import (
+    AllGPU,
     GitHubGPU,
     ModalGPU,
 )
@@ -39,8 +40,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         reference_code,
         submission_content,
         cog: commands.Cog,
-        gpu: str,
-        GPUsEnum: Enum = GitHubGPU,
+        gpu: AllGPU,
         runner_name: str = "GitHub",
     ):
         try:
@@ -49,8 +49,8 @@ class LeaderboardSubmitCog(app_commands.Group):
                 interaction,
                 script,
                 app_commands.Choice(
-                    name=gpu,
-                    value=GPUsEnum[gpu].value,
+                    name=gpu.name,
+                    value=gpu.value,
                 ),
                 reference_code=reference_code,
             )
@@ -63,9 +63,13 @@ class LeaderboardSubmitCog(app_commands.Group):
         try:
             # For CUDA leaderboards, make more robust
             if "check_implementation failed" in message_contents:
-                raise Exception("check_implementation failed. User kernel is incorrect.")
+                await send_discord_message(
+                    interaction,
+                    "check_implementation failed. User kernel and reference kernel do not match.",
+                    ephemeral=True,
+                )
+                return
 
-            # Compute eval or submission score, call runner here.
             # TODO: Make this more robust later
             score = extract_score("".join(message_contents))
 
@@ -78,7 +82,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                         "code": submission_content,
                         "user_id": interaction.user.id,
                         "submission_score": score,
-                        "gpu_type": gpu,
+                        "gpu_type": gpu.name,
                     }
                 )
 
@@ -90,7 +94,7 @@ class LeaderboardSubmitCog(app_commands.Group):
 
             await send_discord_message(
                 interaction,
-                f"Successfully ran on {gpu} using {runner_name} runners!\n"
+                f"Successfully ran on {gpu.name} using {runner_name} runners!\n"
                 + f"Leaderboard '{leaderboard_name}'.\n"
                 + f"Submission title: {script.filename}.\n"
                 + f"Submission user: {user_id}.\n"
@@ -100,7 +104,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         except Exception:
             await send_discord_message(
                 interaction,
-                f"Leaderboard submission to '{leaderboard_name}' on {gpu} "
+                f"Leaderboard submission to '{leaderboard_name}' on {gpu.name} "
                 + f"using {runner_name} runners failed!\n",
                 ephemeral=True,
             )
@@ -225,8 +229,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                 reference_code,
                 submission_content,
                 cog,
-                gpu,
-                GPUsEnum,
+                AllGPU[gpu],
                 runner_name,
             )
             for gpu in view.selected_gpus

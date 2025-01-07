@@ -3,26 +3,11 @@ import subprocess
 from contextlib import contextmanager
 from typing import Optional
 
-from consts import MODAL_PATH
+from consts import CUDA_FLAGS, MODAL_CUDA_INCLUDE_DIRS, MODAL_PATH
 from modal import App, Image, Mount
 
 # Create a stub for the Modal app
 # IMPORTANT: This has to stay in separate file or modal breaks
-CUDA_FLAGS = [
-    "--std=c++20",
-    "-DNDEBUG",
-    "-Xcompiler=-Wno-psabi",
-    "-Xcompiler=-fno-strict-aliasing",
-    "--expt-extended-lambda",
-    "--expt-relaxed-constexpr",
-    "-forward-unknown-to-host-compiler",
-    "--use_fast_math",
-    "-O3",
-    "-Xnvlink=--verbose",
-    "-Xptxas=--verbose",
-    "-Xptxas=--warn-on-spills",
-]
-INCLUDE_DIRS = ["-I/ThunderKittens/include"]
 mount = Mount.from_local_dir(
     MODAL_PATH,
     remote_path="/root/",
@@ -218,7 +203,10 @@ def run_cuda_script(  # # noqa: C901
 
             execution_start_time = time.perf_counter()
             compile_process = subprocess.run(
-                ["nvcc"] + CUDA_FLAGS + INCLUDE_DIRS + [ARCH, NVCC_FILES, "-o", "eval.out"],
+                ["nvcc"]
+                + CUDA_FLAGS
+                + MODAL_CUDA_INCLUDE_DIRS
+                + [ARCH, NVCC_FILES, "-o", "eval.out"],
                 capture_output=True,
                 text=True,
             )
@@ -252,10 +240,10 @@ def run_cuda_script(  # # noqa: C901
 
             return run_process.stdout, score
 
-    except TimeoutException:
-        return None, 0.0
-    except Exception:
-        return None, 0.0
+    except TimeoutException as e:
+        return f"Timeout Error: {str(e)}", 0.0
+    except Exception as e:
+        return f"Error executing script: {str(e)}", 0.0
     finally:
         tmp_files = ["reference.cuh", "train.cuh", "eval.cu", "eval.out"]
         for f in tmp_files:

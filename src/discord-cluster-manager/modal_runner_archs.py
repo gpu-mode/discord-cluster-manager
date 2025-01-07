@@ -1,6 +1,7 @@
 # This file contains wrapper functions for running
 # Modal apps on specific devices. We will fix this later.
 
+from consts import GPU_TO_SM
 from modal_runner import app, cuda_image, run_cuda_script, run_pytorch_script
 
 
@@ -20,7 +21,7 @@ def run_cuda_script_t4(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=75,
+        arch=GPU_TO_SM["T4"],
     )
 
 
@@ -39,7 +40,7 @@ def run_pytorch_script_t4(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=75,  # Targeting T4 (sm_75)
+        arch=GPU_TO_SM["T4"],
     )
 
 
@@ -59,7 +60,7 @@ def run_cuda_script_l4(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=80,
+        arch=GPU_TO_SM["L4"],
     )
 
 
@@ -78,7 +79,7 @@ def run_pytorch_script_l4(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=80,  # Targeting L4 (sm_80)
+        arch=GPU_TO_SM["L4"],
     )
 
 
@@ -98,7 +99,7 @@ def run_cuda_script_a100(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=80,
+        arch=GPU_TO_SM["A100"],
     )
 
 
@@ -117,7 +118,7 @@ def run_pytorch_script_a100(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=80,  # Targeting A100 (sm_80)
+        arch=GPU_TO_SM["A100"],
     )
 
 
@@ -137,7 +138,7 @@ def run_cuda_script_h100(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=90,
+        arch=GPU_TO_SM["H100"],
     )
 
 
@@ -156,7 +157,7 @@ def run_pytorch_script_h100(
         reference_content,
         submission_content,
         timeout_seconds,
-        arch=90,  # Targeting H100 (sm_90)
+        arch=GPU_TO_SM["H100"],
     )
 
 
@@ -176,9 +177,6 @@ cuda_function_map = {
 
 
 def get_pytorch_modal_runner(gpu_type: str):
-    """
-    Returns the appropriate PyTorch function for the given gpu_type.
-    """
     function = pytorch_function_map.get(gpu_type.lower())
 
     if function:
@@ -188,9 +186,6 @@ def get_pytorch_modal_runner(gpu_type: str):
 
 
 def get_cuda_modal_runner(gpu_type: str):
-    """
-    Dynamically imports the appropriate CUDA function based on the gpu_type.
-    """
     function = cuda_function_map.get(gpu_type.lower())
 
     if function:
