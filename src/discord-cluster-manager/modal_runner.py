@@ -92,6 +92,7 @@ def run_pytorch_script(  # noqa: C901
     reference_content: Optional[str] = None,
     submission_content: Optional[str] = None,
     timeout_seconds: int = 300,
+    arch: int = None,
 ) -> tuple[str, float]:
     """
     Executes the provided PyTorch GPU kernel in an isolated environment with a timeout
@@ -101,6 +102,7 @@ def run_pytorch_script(  # noqa: C901
         reference_content: The (optional) reference code, used for leaderboards.
         submission_content: The (optional) submission code, used for leaderboards.
         timeout_seconds: Maximum execution time before timeout (default: 300 seconds)
+        arch: The arch code for the compute/sm versions.
 
     Returns:
         tuple[str, float]: (Kernel output, execution time in milliseconds)
@@ -159,20 +161,16 @@ def run_pytorch_script(  # noqa: C901
     finally:
         tmp_files = ["eval.py", "reference.py", "train.py"]
         for f in tmp_files:
-            break  # REMOVE LATER
             if os.path.exists(f):
                 os.remove(f)
 
 
-@app.function(
-    gpu="H100",
-    image=cuda_image,
-)
 def run_cuda_script(  # # noqa: C901
     script_content: str,
     reference_content: str = None,
     submission_content: str = None,
     timeout_seconds: int = 600,
+    arch: int = None,
 ) -> tuple[str, float]:
     """
     Executes the provided CUDA kernel in an isolated environment with a timeout
@@ -182,6 +180,7 @@ def run_cuda_script(  # # noqa: C901
         reference_content: The (optional) reference code, used for leaderboards.
         submission_content: The (optional) submission code, used for leaderboards.
         timeout_seconds: Maximum execution time in seconds (default: 600 seconds)
+        arch: The arch code for the compute/sm versions.
 
     Returns:
         tuple[str, float]: (Kernel output, execution time in milliseconds)
@@ -203,8 +202,8 @@ def run_cuda_script(  # # noqa: C901
             except Exception:
                 return "nvcc not found.", 0.0
 
+            ARCH = f"-gencode=arch=compute_{arch},code=sm_{arch}"
             NVCC_FILES = "eval.cu"
-            ARCH = "-gencode=arch=compute_80,code=sm_80"
             # Write submission files to directory
             if reference_content is not None:
                 with open("reference.cuh", "w") as f:
@@ -223,29 +222,6 @@ def run_cuda_script(  # # noqa: C901
                 capture_output=True,
                 text=True,
             )
-
-            ## FOR DEBUGGING
-            compilation_output = compile_process.stdout
-            compilation_error = compile_process.stderr
-
-            print("running ls...")
-            subprocess.run(["ls", "."])
-
-            print("running ls /ThunderKittens/...")
-            subprocess.run(["ls", "/ThunderKittens/"])
-
-            print("running ls ThunderKittens/include/...")
-            subprocess.run(["ls", "/ThunderKittens/include"])
-
-            print(
-                "compile",
-                ["nvcc"] + CUDA_FLAGS + INCLUDE_DIRS + [ARCH, NVCC_FILES, "-o", "eval.out"],
-            )
-            print("out", compilation_output)
-            print("err", compilation_error)
-
-            print("return code", compile_process.returncode)
-            ## FOR DEBUGGING
 
             if compile_process.returncode != 0:
                 raise RuntimeError(

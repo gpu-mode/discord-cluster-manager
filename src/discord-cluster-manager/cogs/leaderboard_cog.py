@@ -203,6 +203,17 @@ class LeaderboardSubmitCog(app_commands.Group):
             return -1
 
         # GPU selection View
+        gpu_enums = {e.name for e in GPUsEnum}
+        gpus = [gpu for gpu in gpus if gpu in gpu_enums]
+
+        if len(gpus) == 0:
+            await send_discord_message(
+                interaction,
+                "❌ No available GPUs for Leaderboard "
+                + f"`{leaderboard_name}` on {runner_name} runner.",
+            )
+            return -1
+
         view = await self.select_gpu_view(interaction, leaderboard_name, gpus)
 
         tasks = [
@@ -215,7 +226,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                 submission_content,
                 cog,
                 gpu,
-                GitHubGPU,  # GPUsEnum, TODO: FIX ME LATER!,
+                GPUsEnum,
                 runner_name,
             )
             for gpu in view.selected_gpus
