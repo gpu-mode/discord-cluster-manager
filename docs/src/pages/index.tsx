@@ -34,8 +34,8 @@ export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
+      title={`GPU MODE Kernel Leaderboard`}
+      description="GPU MODE Kernel Leaderboard">
       <HomepageHeader />
       <main>
         <HomepageFeatures />
