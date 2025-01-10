@@ -77,6 +77,7 @@ float measure_runtime() {
         auto data = generate_input();
         custom_kernel(data);
     }
+    cudaDeviceSynchronize();
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -85,6 +86,7 @@ float measure_runtime() {
         custom_kernel(data);
     }
 
+    cudaDeviceSynchronize();
     auto end = std::chrono::high_resolution_clock::now();
 
     using double_duration = std::chrono::duration<double>;

@@ -15,124 +15,136 @@ leaderboard*, as for example, a softmax kernel on an NVIDIA T4 may be very diffe
 give leaderboard creators the option to select which GPUs they care about for their leaderboards --
 for example, they may only care about NVIDIA A100 and NVIDIA H100 performance for their leaderboard.
 
-To create a Python leaderboard given the correct role permissions, you can run (type it out so it fills in
+To create a CUDA leaderboard given the correct role permissions, you can run (type it out so it fills in
 correctly)
 <center>
 ```
-/leaderboard create {leaderboard_name: str} {deadline: str} {reference_code: .py file}
+/leaderboard create {leaderboard_name: str} {deadline: str} {reference_code: .cu / .cuh / .cpp file}
 ```
 </center>
 
 After running this, similar to leaderboard submissions, a UI window will pop up asking which GPUs
 the leaderboard creator wants to allow submissions on. After selecting the GPUs, the leaderboard
 will be created, and users can submit. In the rest of this page, we will explain how to write a
-proper `reference_code.py` file to create your own leaderboards.
+proper `reference_code.cuh` file to create your own leaderboards.
 
 ## The Evaluation Harness
-When a user submits a Python kernel submission to your leaderboard, we use the reference code from
+When a user submits a CUDA kernel submission to your leaderboard, we use the reference code from
 the leaderboard and an evalulation script to check for correctness of the user kernel and measure
-the runtime. In all:
-* `eval.py` **(treated as main)**: Run user and reference kernels to check correctness, then measure
+the runtime. Unlike in the Python leaderboard, we will compile the evalulation code as the main source
+file, and the leaderboard reference / user submission code as header files. We handle re-naming
+filenames on our end, so leaderboard creators can use any file extension for their reference
+kernels. **It is just important to know that we treat the reference code as a header file
+internally.** In all:
+* `eval.cu` **(treated as main)**: Run user and reference kernels to check correctness, then measure
   runtime of user kernel if it passes correctness checks.
-* `reference_code.py`: Define input/output types, data generator, reference kernel, and correctness
+* `reference_code.cuh`: Define input/output types, data generator, reference kernel, and correctness
   logic to compare user and reference kernel outputs.
-* `submission.py`: Define user submitted kernel.
+* `submission.cuh`: Define user submitted kernel.
 
-The evaluation harness is the same for all Python leaderboards, and can be retrieved with
+The evaluation harness is the same for all CUDA leaderboards, and can be retrieved with
 <center>
 ```
-/leaderboard eval-code language:python
+/leaderboard eval-code language:cuda
 ```
 </center>
 
 Let's break down what's going on in this relatively short file:
 
-```python title="eval.py"
+```cpp title="eval.cu"
+#include <chrono>
+#include <iostream>
 
-import torch
-import time
-from reference import ref_kernel, generate_input, check_implementation
-from train import custom_kernel
+#include "reference.cuh"
+#include "train.cuh"
 
-
-def correctness() -> bool:
-    for _ in range(10):  # check multiple times
-        inputs = generate_input()
-        custom_output = custom_kernel(inputs)
-        ref_output = ref_kernel(inputs)
-
-        # User leaderboard-defined "equality" to check correctness
-        if not check_implementation(custom_output, ref_output):
-            return False
-    return True
+#define WARMUP_RUNS 10
+#define TIMED_RUNS 100
 
 
-def metric():
-    warmup_runs = 10
-    timed_runs = 100
+float measure_runtime() {
 
-    # Warmup Code
-    for _ in range(warmup_runs):
-        inputs = generate_input()
-        _ = custom_kernel(inputs)
-    torch.cuda.synchronize()
+    // Warmup Runs
+    for (int i = 0; i < WARMUP_RUNS; i++) {
+        auto data = generate_input();
+        custom_kernel(data);
+    }
+    cudaDeviceSynchronize();
 
-    # Timing Code
-    inputs = generate_input()
-    start_time = time.time()
-    for _ in range(timed_runs):
-        _ = custom_kernel(inputs)
-    torch.cuda.synchronize()
-    end_time = time.time()
+    auto start = std::chrono::high_resolution_clock::now();
 
-    custom_duration = (end_time - start_time) / timed_runs
-    print(f'Submitted kernel runtime: {custom_duration:.4f} seconds')
+    for (int i = 0; i < TIMED_RUNS; i++) {
+        auto data = generate_input();
+        custom_kernel(data);
+    }
+    
+    cudaDeviceSynchronize();
+    auto end = std::chrono::high_resolution_clock::now();
 
-    return custom_duration
+    using double_duration = std::chrono::duration<double>;
+    auto duration = std::chrono::duration_cast<double_duration>(end - start).count() / TIMED_RUNS;
+    std::cout << "submitted kernel runtime: " << duration << " seconds" << std::endl;
+    return duration;
+}
 
-def main():
-    assert (correctness())
+int main() {
+    auto data = generate_input();
+    auto reference_output = ref_kernel(data);
+    auto submission_output = custom_kernel(data);
 
-    # Warmup + Profile runtime
-    s = metric()
-    print(f'score:{s}')
+    if (!check_implementation(submission_output, reference_output)) {
+        std::cout << "check_implementation failed" << std::endl;
+        return 1;
+    }
 
-if __name__ == '__main__':
-    main()
+    float s = measure_runtime();
+    std::cout << "score: " << s << std::endl;
+
+    return 0;
+}
+
 ```
-You'll notice that we import from a module named `reference` and `train`. These are the reference
-code and submission code respectively, just renamed to a fix module so we can import them. The
+You'll notice that we include from headers named `reference.cuh` and `train.cuh`. These are the reference
+code and submission code respectively, just renamed to a fix module so we can include them. The
 general idea is that the evaluation code can treat the leaderboard as a basic abstraction, and only
 concern itself with three things:
 1. Checking that the reference kernel and user kernel are "equal" (the leaderboard creator defines
-what "equal" mean!). This is the `assert(correctness())` line.
-2. Warming up the user kernel if it passed correctness checks. This happens in the first part of `metric()`.
+what "equal" mean!). This is the `if !check_implementation(...)` line.
+2. Warming up the user kernel if it passed correctness checks. This happens in the first part of `measure_runtime()`.
 3. Timing the user kernel without including data generation. This happens in the second part of
-   `metric()`.
+   `measure_runtime()`.
 
 The abstraction doesn't consider devices either, so the leaderboard creator can choose whether data
 starts on the host or on-device -- this kind of flexibility allows leaderboards to evaluate on
 whatever the creator is interested in optimizing.
 
 ## Reference Code Requirements
-The reference code file **must be a `.py`** to create a Python leaderboard. `.cu, .cuh, .cpp`
-reference files willl create [CUDA leaderboards](./cuda-creations). Based on the evaluation harness
-above, each reference file **must** have the following function signatures filled out:
+The reference code file **must be a `.cu, .cuh, .cpp.`** to create a CUDA leaderboard. `.py`
+reference files will create [Python leaderboards](./python-creations). Based on the evaluation harness
+above, each reference file **must** have the following function signatures filled out (header guards
+are optional but good practice):
 
 
-```python title="reference_template.py"
+```cpp title="reference_template.cuh"
+#ifndef __REFERENCE_CUH__
+#define __REFERENCE_CUH__
 
-def check_implementation(
-        user_output: OutputType,
-        reference_output: OutputType,
-    ) -> bool:
+using input_t = ...;
+using output_t = ...;
+
+bool check_implementation(output_t custom_output, output_t ref_output) {
     ...
+}
 
-def generate_input() -> InputType:
+input_t generate_input() {
     ...
+}
 
-def ref_kernel(data: InputType) -> OutputType:
+output_t ref_kernel(input_t input) {
     ...
+}
+
+#endif
 ```
 
 We leave it up to the leaderboard creator to fill out these functions and types. This offers the flexibility

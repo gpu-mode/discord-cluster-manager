@@ -117,7 +117,7 @@ whatever the creator is interested in optimizing.
 
 ## Reference Code Requirements
 The reference code file **must be a `.py`** to create a Python leaderboard. `.cu, .cuh, .cpp`
-reference files willl create [CUDA leaderboards](./cuda-creations). Based on the evaluation harness
+reference files will create [CUDA leaderboards](./cuda-creations). Based on the evaluation harness
 above, each reference file **must** have the following function signatures filled out:
 
 
