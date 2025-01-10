@@ -65,7 +65,7 @@ output_t custom_kernel(input_t input) {
 }
 ```
 
-The `input_t` and `output_t` are generics defined by the leaderboard (you can view the
+The `input_t` and `output_t` are generic aliases defined by the leaderboard (you can view the
 leaderboard reference code that defines these types, see [Available Discord
 Commands](../available-discord-commands)), and are typically going to be
 of the form `std::array<std::vector<float>, N_TENSORS>`. We choose this generic format to allow for things like multiple
