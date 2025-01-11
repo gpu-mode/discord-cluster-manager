@@ -20,7 +20,7 @@ def run_cuda_script(  # # noqa: C901
         script_content: The CUDA script containing the GPU kernel
         reference_content: The (optional) reference code, used for leaderboards.
         submission_content: The (optional) submission code, used for leaderboards.
-        arch: The arch code for the compute/sm versions.
+        arch: The arch code for the compute/sm versions. If None, native arch is used.
         include_dirs: Additional include directories, e.g., for thunderkittens/cutlass etc
 
     Returns:
@@ -34,12 +34,15 @@ def run_cuda_script(  # # noqa: C901
         print("[CUDA Env Check]")
         try:
             # these check cuda compiler is also available
-            subprocess.run(["nvcc", "--version"], check=True)
-            subprocess.run(["which", "nvcc"], check=True)
+            print(subprocess.check_output(["which", "nvcc"], encoding="utf-8"))
+            print(subprocess.check_output(["nvcc", "--version"], encoding="utf-8"))
         except Exception:
             return "nvcc not found.", 0.0
 
-        ARCH = f"-gencode=arch=compute_{arch},code=sm_{arch}"
+        if arch is None:
+            ARCH = "-arch=native"
+        else:
+            ARCH = f"-gencode=arch=compute_{arch},code=sm_{arch}"
         NVCC_FILES = "eval.cu"
         # Write submission files to directory
         if reference_content is not None:
@@ -70,6 +73,7 @@ def run_cuda_script(  # # noqa: C901
         execution_end_time = time.perf_counter()
 
         print("run process stdout", run_process.stdout)
+        print("run process stderr", run_process.stderr)
 
         score = None
         for line in run_process.stdout.splitlines():
@@ -80,12 +84,10 @@ def run_cuda_script(  # # noqa: C901
         if score is None:
             execution_end_time = time.perf_counter()
             score = execution_end_time - execution_start_time
-            return (
-                "check_implementation failed"
-                if "check_implementation failed" in run_process.stdout
-                else None,
-                score,
-            )  # To make sure error is thrown on LB
+            if "check_implementation failed" in run_process.stdout:
+                return "check_implementation failed", 0.0
+            else:
+                return None, score
 
         return run_process.stdout, score
 
