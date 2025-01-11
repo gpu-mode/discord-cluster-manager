@@ -41,15 +41,19 @@ double measure_runtime() {
 
     for (int i = 0; i < TIMED_RUNS; i++) {
         auto data = generate_input();
+        // make a copy of the input data to be used by the reference implementation
+        auto copy = data;
 
         auto start = std::chrono::high_resolution_clock::now();
-        auto submission_output = custom_kernel(data);
+        // move data into custom_kernel, so that if custom_kernel takes large std::vectors or similar by value,
+        // we're not measuring the copy overhead.
+        auto submission_output = custom_kernel(std::move(data));
         cuda_check(cudaDeviceSynchronize());
         auto end = std::chrono::high_resolution_clock::now();
 
         durations.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 
-        auto reference_output = ref_kernel(data);
+        auto reference_output = ref_kernel(copy);
         if (!check_implementation(submission_output, reference_output)) {
             std::cout << "check_implementation failed" << std::endl;
             // following pytest convention, code 1 means that tests failed
