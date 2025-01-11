@@ -92,8 +92,16 @@ def run_cuda_script(  # # noqa: C901
             key, _, value = line.partition(":")
             key = key.strip()
             value = value.strip()
-            if key == "score":
-                score = float(value)
+            if key == "duration.mean":
+                score = float(value) / 1e9
+            elif key == "duration.std":
+                _ = float(value) / 1e9
+            elif key == "duration.err":
+                _ = float(value) / 1e9
+            elif key == "duration.best":
+                _ = float(value) / 1e9
+            elif key == "duration.worst":
+                _ = float(value) / 1e9
             elif key == "check":
                 passed = value == "pass"
             else:
