@@ -11,10 +11,10 @@ from train import custom_kernel
 
 def correctness() -> bool:
     for _ in range(10):  # check multiple times
-        input_tensors = generate_input()
+        inputs = generate_input()
 
-        custom_output = custom_kernel(input_tensors)
-        ref_output = ref_kernel(input_tensors)
+        custom_output = custom_kernel(inputs)
+        ref_output = ref_kernel(inputs)
 
         if not check_implementation(custom_output, ref_output):
             return False
@@ -30,20 +30,29 @@ def metric():
     # Warmup Code
     print('warming up...')
     for _ in range(warmup_runs):
-        input_tensors = generate_input()
-        _ = custom_kernel(input_tensors)
-        _ = ref_kernel(input_tensors)
+        inputs = generate_input()
+        _ = custom_kernel(inputs)
     torch.cuda.synchronize()
 
     # Timing Code
-    input_tensors = generate_input()
-    start_time = time.time()
-    for _ in range(timed_runs):
-        _ = custom_kernel(input_tensors)
-    torch.cuda.synchronize()
-    end_time = time.time()
+    total_time = 0.0
 
-    custom_duration = (end_time - start_time) / timed_runs
+    for _ in range(timed_runs):
+        inputs = generate_input()
+
+        start_time = time.time()
+        custom_output = custom_kernel(inputs)
+        torch.cuda.synchronize()
+        end_time = time.time()
+        total_time += (end_time - start_time)
+
+        ref_output = ref_kernel(inputs)
+        torch.cuda.synchronize()
+        if not check_implementation(custom_output, ref_output):
+            return -1
+
+
+    custom_duration = total_time / timed_runs
 
     print(f'Submitted kernel runtime: {custom_duration:.4f} seconds')
 
@@ -76,28 +85,41 @@ float measure_runtime() {
 
     for (int i = 0; i < WARMUP_RUNS; i++) {
         auto data = generate_input();
-        submission(data);
+        custom_kernel(data);
     }
+    cudaDeviceSynchronize();
 
-    auto start = std::chrono::high_resolution_clock::now();
+    using double_duration = std::chrono::duration<double>;
+    double total_duration = 0.0;
 
     for (int i = 0; i < TIMED_RUNS; i++) {
         auto data = generate_input();
-        submission(data);
+
+        auto start = std::chrono::high_resolution_clock::now();
+        auto submission_output = custom_kernel(data);
+        cudaDeviceSynchronize();
+        auto end = std::chrono::high_resolution_clock::now();
+
+        total_duration += std::chrono::duration_cast<double_duration>(end - start).count();
+
+        auto reference_output = ref_kernel(data);
+        if (!check_implementation(submission_output, reference_output)) {
+            std::cout << "check_implementation failed" << std::endl;
+            return 1;
+        }
+
     }
 
-    auto end = std::chrono::high_resolution_clock::now();
 
-    using double_duration = std::chrono::duration<double>;
-    auto duration = std::chrono::duration_cast<double_duration>(end - start).count() / TIMED_RUNS;
-    std::cout << "submitted kernel runtime: " << duration << " seconds" << std::endl;
-    return duration;
+    double average_duration = total_duration / TIMED_RUNS;
+    std::cout << "submitted kernel runtime: " << average_duration << " seconds" << std::endl;
+    return average_duration;
 }
 
 int main() {
     auto data = generate_input();
-    auto reference_output = reference(data);
-    auto submission_output = submission(data);
+    auto reference_output = ref_kernel(data);
+    auto submission_output = custom_kernel(data);
 
     if (!check_implementation(submission_output, reference_output)) {
         std::cout << "check_implementation failed" << std::endl;
@@ -105,6 +127,10 @@ int main() {
     }
 
     float s = measure_runtime();
+    if (s < 0) {
+        return 1;
+    }
+
     std::cout << "score: " << s << std::endl;
 
     return 0;
