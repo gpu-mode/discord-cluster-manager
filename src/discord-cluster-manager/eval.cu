@@ -1,5 +1,8 @@
 #include <chrono>
 #include <iostream>
+#include <cstdint>
+#include <vector>
+#include <numeric>
 
 #include "reference.cuh"
 #include "train.cuh"
@@ -24,7 +27,7 @@ static void cuda_check(cudaError_t status, const char* expr, const char* file, i
 
 #define cuda_check(expr) cuda_check(expr, #expr, __FILE__, __LINE__, __FUNCTION__)
 
-float measure_runtime() {
+double measure_runtime() {
     std::cout << "warming up..." << std::endl;
 
     for (int i = 0; i < WARMUP_RUNS; i++) {
@@ -33,8 +36,8 @@ float measure_runtime() {
     }
     cuda_check(cudaDeviceSynchronize());
 
-    using double_duration = std::chrono::duration<double>;
-    double total_duration = 0.0;
+    std::vector<std::int64_t> durations;
+    durations.reserve(TIMED_RUNS);
 
     for (int i = 0; i < TIMED_RUNS; i++) {
         auto data = generate_input();
@@ -44,7 +47,7 @@ float measure_runtime() {
         cuda_check(cudaDeviceSynchronize());
         auto end = std::chrono::high_resolution_clock::now();
 
-        total_duration += std::chrono::duration_cast<double_duration>(end - start).count();
+        durations.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 
         auto reference_output = ref_kernel(data);
         if (!check_implementation(submission_output, reference_output)) {
@@ -55,8 +58,10 @@ float measure_runtime() {
 
     }
 
+    // calculate duration statistics
+    std::int64_t total_duration = std::accumulate(durations.begin(), durations.end(), (std::int64_t)0);
 
-    double average_duration = total_duration / TIMED_RUNS;
+    double average_duration = (double)total_duration / 1e9 / TIMED_RUNS;
     std::cout << "submitted kernel runtime: " << average_duration << " seconds" << std::endl;
     return average_duration;
 }
@@ -71,7 +76,7 @@ int main() {
         return 1;
     }
 
-    float s = measure_runtime();
+    double s = measure_runtime();
     if (s < 0) {
         return 1;
     }
