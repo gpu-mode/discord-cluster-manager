@@ -69,7 +69,7 @@ def run_cuda_script(  # # noqa: C901
                 + f"{compile_process.returncode}:\n{compile_process.stderr}"
             )
 
-        run_process = subprocess.run(["./eval.out"], capture_output=True, text=True)
+        run_process = subprocess.run(["./eval.out"], capture_output=True, text=True, check=True)
         execution_end_time = time.perf_counter()
 
         print("run process stdout", run_process.stdout)
