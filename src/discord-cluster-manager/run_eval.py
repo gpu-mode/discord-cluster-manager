@@ -39,7 +39,10 @@ def run_cuda_script(  # # noqa: C901
         except Exception:
             return "nvcc not found.", 0.0
 
-        ARCH = f"-gencode=arch=compute_{arch},code=sm_{arch}"
+        if arch is None:
+            ARCH = "-arch=native"
+        else:
+            ARCH = f"-gencode=arch=compute_{arch},code=sm_{arch}"
         NVCC_FILES = "eval.cu"
         # Write submission files to directory
         if reference_content is not None:
