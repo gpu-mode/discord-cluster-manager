@@ -82,7 +82,6 @@ def run_cuda_script(  # # noqa: C901
                 break
 
         if score is None:
-            execution_end_time = time.perf_counter()
             score = execution_end_time - execution_start_time
             if "check_implementation failed" in run_process.stdout:
                 return "check_implementation failed", 0.0
