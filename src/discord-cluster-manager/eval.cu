@@ -49,8 +49,9 @@ float measure_runtime() {
 
         auto reference_output = ref_kernel(data);
         if (!check_implementation(submission_output, reference_output)) {
-            std::cout << "check_implementation failed" << std::endl;
-            return 1;
+            std::cerr << "check_implementation failed" << std::endl;
+            // following pytest convention, code 1 means that tests failed
+            std::exit(1);
         }
 
     }
