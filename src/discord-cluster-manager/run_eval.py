@@ -69,17 +69,38 @@ def run_cuda_script(  # # noqa: C901
                 + f"{compile_process.returncode}:\n{compile_process.stderr}"
             )
 
-        run_process = subprocess.run(["./eval.out"], capture_output=True, text=True, check=True)
+        # set up a pipe so the tester can communicate its verdict with us
+        env = os.environ.copy()
+        pipe_read, pipe_write = os.pipe()
+        env['POPCORN_FD'] = str(pipe_write)
+
+        run_process = subprocess.run(["./eval.out"], capture_output=True, text=True, check=True, env=env,
+                                     pass_fds=[pipe_write])
+        # terminate output writing
+        os.close(pipe_write)
+        # and fetch pipe's content
+        result = os.fdopen(pipe_read, 'r').read()
         execution_end_time = time.perf_counter()
 
+        print("result", result)
         print("run process stdout", run_process.stdout)
         print("run process stderr", run_process.stderr)
 
         score = None
-        for line in run_process.stdout.splitlines():
-            if line.startswith("score:"):
-                score = float(line.split(":")[1].strip())
-                break
+        passed = None
+        for line in result.splitlines():
+            key, _, value = line.partition(":")
+            key = key.strip()
+            value = value.strip()
+            if key == "score":
+                score = float(value)
+            elif key == "check":
+                passed = value == "pass"
+            else:
+                print(f"unknown key {key} = {value}")
+        # TODO: handle the case when "check" key is missing?
+        if not passed:
+            return "check_implementation failed", 0.0
 
         if score is None:
             score = execution_end_time - execution_start_time

@@ -3,12 +3,37 @@
 #include <cstdint>
 #include <vector>
 #include <numeric>
+#include <memory>
 
 #include "reference.cuh"
 #include "train.cuh"
 
 #define WARMUP_RUNS 10
 #define TIMED_RUNS 100
+
+struct Closer {
+    void operator()(std::FILE* file) {
+        std::fclose(file);
+    }
+};
+
+struct PopcornOutput {
+    template<class... Args>
+    void printf(Args&&... args) {
+        ::fprintf(File.get(), std::forward<Args>(args)...);
+    }
+
+    void log(const char* key, const char* value) {
+        printf("%s: %s\n", key, value);
+    }
+
+    template<class T>
+    void log(const char* key, T&& value) {
+        log(key, std::to_string(value).c_str());
+    }
+
+    std::unique_ptr<std::FILE, Closer> File;
+};
 
 // checks that a CUDA API call returned successfully, otherwise prints an error message and exits.
 static void cuda_check(cudaError_t status, const char* expr, const char* file, int line, const char* function)
@@ -56,9 +81,7 @@ double measure_runtime() {
 
         auto reference_output = ref_kernel(copy);
         if (!check_implementation(submission_output, reference_output)) {
-            std::cout << "check_implementation failed" << std::endl;
-            // following pytest convention, code 1 means that tests failed
-            std::exit(1);
+            return -1.0;    // negative result indicates fail
         }
 
     }
@@ -72,21 +95,32 @@ double measure_runtime() {
 }
 
 int main() {
+    const char *output_fd = std::getenv("POPCORN_FD");
+    PopcornOutput logger;
+    if (output_fd) {
+        int fd = std::stoi(output_fd);
+        logger.File.reset(::fdopen(fd, "w"));
+    } else {
+        return 4;       // pytest: usage error
+    }
+
     auto data = generate_input();
     auto reference_output = ref_kernel(data);
     auto submission_output = custom_kernel(data);
 
     if (!check_implementation(submission_output, reference_output)) {
-        std::cout << "check_implementation failed" << std::endl;
+        logger.log("check", "fail");
         return 1;
     }
 
     double s = measure_runtime();
     if (s < 0) {
+        logger.log("check", "fail");
         return 1;
     }
 
-    std::cout << "score: " << s << std::endl;
+    logger.log("check", "pass");
+    logger.log("score", s);
 
     return 0;
 }
