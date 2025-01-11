@@ -21,8 +21,8 @@ output_t custom_kernel(input_t data)
 
     for (int i = 0; i < N_SIZES; ++i)
     {
-        std::cout << "HANDLING SIZE "  <<  i <<  "\n";
         int N = Ns[i];
+        std::cout << "HANDLING SIZE "  <<  i << ": " << N << "\n";
         result[i].resize(N);
 
         // Allocate device memory
@@ -37,6 +37,7 @@ output_t custom_kernel(input_t data)
         int blockSize = 256;
         int numBlocks = (N + blockSize - 1) / blockSize;
         copy_kernel<<<numBlocks, blockSize>>>(d_input, d_output, N);
+        cuda_check_(cudaGetLastError());
 
         // Copy result back to host
         cuda_check_(cudaMemcpy(result[i].data(), d_output, N * sizeof(float), cudaMemcpyDeviceToHost));
