@@ -1,0 +1,18 @@
+name: Nightly GPU Tests
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Runs at 00:00 UTC every day
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  amd-test:
+    uses: ./.github/workflows/amd-workflow.yml
+    with:
+      script_content: "import torch; torch.zeros(10).cuda()"
+      filename: "test_gpu.py"
+
+  nvidia-test:
+    uses: ./.github/workflows/nvidia-workflow.yml
+    with:
+      script_content: "import torch; torch.zeros(10).cuda()"
+      filename: "test_gpu.py"
