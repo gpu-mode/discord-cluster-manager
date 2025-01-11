@@ -7,7 +7,9 @@
 #include <memory>
 
 #include "reference.cuh"
-#include "train.cuh"
+
+// forward declarations
+output_t custom_kernel(input_t data);
 
 #define WARMUP_RUNS 10
 #define TIMED_RUNS 100

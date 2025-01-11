@@ -43,22 +43,23 @@ def run_cuda_script(  # # noqa: C901
             ARCH = "-arch=native"
         else:
             ARCH = f"-gencode=arch=compute_{arch},code=sm_{arch}"
-        NVCC_FILES = "eval.cu"
+        NVCC_FILES = ["eval.cu"]
         # Write submission files to directory
         if reference_content is not None:
             with open("reference.cuh", "w") as f:
                 f.write(reference_content)
 
         if submission_content is not None:
-            with open("train.cuh", "w") as f:
+            with open("train.cu", "w") as f:
                 f.write(submission_content)
+            NVCC_FILES += ["train.cu"]
 
         with open("eval.cu", "w") as f:
             f.write(script_content)
 
         execution_start_time = time.perf_counter()
         compile_process = subprocess.run(
-            ["nvcc"] + CUDA_FLAGS + include_dirs + [ARCH, NVCC_FILES, "-o", "eval.out"],
+            ["nvcc"] + CUDA_FLAGS + include_dirs + [ARCH] + NVCC_FILES + ["-o", "eval.out"],
             capture_output=True,
             text=True,
         )
