@@ -5,7 +5,8 @@ import sys
 from contextlib import contextmanager
 
 from consts import GPU_TO_SM
-from modal_runner import app, cuda_image, run_cuda_script, run_pytorch_script
+from cuda_eval import run_cuda_script
+from modal_runner import app, cuda_image, run_pytorch_script
 
 
 # T4: sm_70 (CUDA 7.x, Maxwell Architecture)
