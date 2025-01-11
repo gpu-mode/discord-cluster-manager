@@ -1,9 +1,10 @@
-import subprocess
+import signal
+from contextlib import contextmanager
 from typing import Optional
 
-from consts import MODAL_PATH
+from consts import MODAL_CUDA_INCLUDE_DIRS, MODAL_PATH
 from modal import App, Image, Mount
-from timeout import TimeoutException, timeout
+from run_eval import run_cuda_script, run_pytorch_script
 
 # Create a stub for the Modal app
 # IMPORTANT: This has to stay in separate file or modal breaks
@@ -45,79 +46,66 @@ cuda_image = (
 )
 
 
-def run_pytorch_script(  # noqa: C901
+class TimeoutException(Exception):
+    pass
+
+
+@contextmanager
+def timeout(seconds: int):
+    """Context manager that raises TimeoutException after specified seconds"""
+
+    def timeout_handler(signum, frame):
+        raise TimeoutException(f"Script execution timed out after {seconds} seconds")
+
+    # Set up the signal handler
+    original_handler = signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(seconds)
+
+    try:
+        yield
+    finally:
+        # Restore the original handler and disable the alarm
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, original_handler)
+
+
+def modal_run_pytorch_script(  # noqa: C901
     script_content: str,
     reference_content: Optional[str] = None,
     submission_content: Optional[str] = None,
     timeout_seconds: int = 300,
     arch: int = None,
 ) -> tuple[str, float]:
-    """
-    Executes the provided PyTorch GPU kernel in an isolated environment with a timeout
-
-    Args:
-        script_content: The PyTorch script containing the GPU kernel to benchmark
-        reference_content: The (optional) reference code, used for leaderboards.
-        submission_content: The (optional) submission code, used for leaderboards.
-        timeout_seconds: Maximum execution time before timeout (default: 300 seconds)
-        arch: The arch code for the compute/sm versions.
-
-    Returns:
-        tuple[str, float]: (Kernel output, execution time in milliseconds)
-
-    NOTE: Modal execution time is not programmatically accessible, so we manually calculate it
-    """
-
-    import os
-    import time
-
+    """Modal version of run_pytorch_script, handling timeouts"""
     try:
         with timeout(timeout_seconds):
-            # Write submission files to directory
-            if reference_content is not None:
-                with open("reference.py", "w") as f:
-                    f.write(reference_content)
-
-            if submission_content is not None:
-                with open("train.py", "w") as f:
-                    f.write(submission_content)
-
-            with open("eval.py", "w") as f:
-                f.write(script_content)
-
-            execution_start_time = time.perf_counter()
-            result = subprocess.run(
-                ["python", "eval.py"],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=timeout_seconds,
+            run_pytorch_script(
+                script_content=script_content,
+                reference_content=reference_content,
+                submission_content=submission_content,
+                arch=arch,
             )
-
-            if result.returncode != 0:
-                raise RuntimeError(
-                    "Script execution failed with return code "
-                    + f"{result.returncode}:\n{result.stderr}"
-                )
-
-            score = None
-            for line in result.stdout.splitlines():
-                if line.startswith("score:"):
-                    score = float(line.split(":")[1].strip())
-                    return ("score", score)
-
-            if score is None:
-                execution_end_time = time.perf_counter()
-                score = execution_end_time - execution_start_time
-
-        return result.stdout, score
 
     except TimeoutException as e:
         return f"Timeout Error: {str(e)}", 0.0
-    except Exception as e:
-        return f"Error executing script: {str(e)}", 0.0
-    finally:
-        tmp_files = ["eval.py", "reference.py", "train.py"]
-        for f in tmp_files:
-            if os.path.exists(f):
-                os.remove(f)
+
+
+def modal_run_cuda_script(  # # noqa: C901
+    script_content: str,
+    reference_content: str = None,
+    submission_content: str = None,
+    timeout_seconds: int = 600,
+    arch: int = None,
+) -> tuple[str, float]:
+    """Modal version of run_cuda_script, handling timeouts"""
+    try:
+        with timeout(timeout_seconds):
+            run_cuda_script(
+                script_content,
+                reference_content=reference_content,
+                submission_content=submission_content,
+                arch=arch,
+                include_dirs=MODAL_CUDA_INCLUDE_DIRS,
+            )
+    except TimeoutException as e:
+        return f"Timeout Error: {str(e)}", 0.0

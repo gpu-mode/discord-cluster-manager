@@ -5,8 +5,7 @@ import sys
 from contextlib import contextmanager
 
 from consts import GPU_TO_SM
-from cuda_eval import run_cuda_script
-from modal_runner import app, cuda_image, run_pytorch_script
+from modal_runner import app, cuda_image, modal_run_cuda_script, modal_run_pytorch_script
 
 
 # T4: sm_70 (CUDA 7.x, Maxwell Architecture)
@@ -20,7 +19,7 @@ def run_cuda_script_t4(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_cuda_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
@@ -39,7 +38,7 @@ def run_pytorch_script_t4(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_pytorch_script(
+    return modal_run_pytorch_script(
         script_content,
         reference_content,
         submission_content,
@@ -59,7 +58,7 @@ def run_cuda_script_l4(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_cuda_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
@@ -78,7 +77,7 @@ def run_pytorch_script_l4(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_pytorch_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
@@ -98,7 +97,7 @@ def run_cuda_script_a100(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_cuda_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
@@ -117,7 +116,7 @@ def run_pytorch_script_a100(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_pytorch_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
@@ -137,7 +136,7 @@ def run_cuda_script_h100(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_cuda_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
@@ -156,7 +155,7 @@ def run_pytorch_script_h100(
     submission_content: str = None,
     timeout_seconds: int = 600,
 ) -> tuple[str, float]:
-    return run_pytorch_script(
+    return modal_run_cuda_script(
         script_content,
         reference_content,
         submission_content,
