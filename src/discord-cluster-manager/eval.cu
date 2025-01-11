@@ -32,7 +32,8 @@ double measure_runtime() {
 
     for (int i = 0; i < WARMUP_RUNS; i++) {
         auto data = generate_input();
-        custom_kernel(data);
+        // discard result; this is just warmup, we don't care what it returns
+        (void)custom_kernel(data);
     }
     cuda_check(cudaDeviceSynchronize());
 
