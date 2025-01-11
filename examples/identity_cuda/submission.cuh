@@ -21,6 +21,7 @@ output_t custom_kernel(input_t data)
 
     for (int i = 0; i < N_SIZES; ++i)
     {
+        std::cout << "HANDLING SIZE "  <<  i <<  "\n";
         int N = Ns[i];
         result[i].resize(N);
 
