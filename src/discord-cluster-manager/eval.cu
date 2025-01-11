@@ -82,8 +82,7 @@ void measure_runtime(PopcornOutput& logger) {
 
         durations.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 
-        auto reference_output = ref_kernel(copy);
-        if (!check_implementation(submission_output, reference_output)) {
+        if (!check_implementation(copy, submission_output)) {
             logger.log("check", "fail");
             std::exit(1);
         }
@@ -128,10 +127,9 @@ int main() {
     }
 
     auto data = generate_input();
-    auto reference_output = ref_kernel(data);
     auto submission_output = custom_kernel(data);
 
-    if (!check_implementation(submission_output, reference_output)) {
+    if (!check_implementation(data, submission_output)) {
         logger.log("check", "fail");
         return 1;
     }

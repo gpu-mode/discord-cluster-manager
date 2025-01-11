@@ -33,9 +33,8 @@ inline output_t ref_kernel(input_t data) {
   return (output_t) data;
 }
 
-inline bool check_implementation(output_t out, output_t ref, float epsilon = 1e-5) {
-  // input_t data = generate_input();
-  // output_t reference_out = reference(data);
+inline bool check_implementation(const input_t& data, const output_t& out, float epsilon = 1e-5) {
+  output_t ref = ref_kernel(data);
 
   for (int i = 0; i < N_SIZES; ++i) {
     auto ref_ptr = ref[i];
