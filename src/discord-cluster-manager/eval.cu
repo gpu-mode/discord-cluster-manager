@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <source_location>
 
 #include "reference.cuh"
 #include "train.cuh"
@@ -7,6 +8,22 @@
 #define WARMUP_RUNS 10
 #define TIMED_RUNS 100
 
+// checks that a CUDA API call returned successfully, otherwise prints an error message and exits.
+static void cuda_check(cudaError_t status, const char* expr, const char* file, int line, const char* function)
+{
+    if(status != cudaSuccess) {
+        std::cerr << "CUDA error (" << (int)status << ") while evaluating expression "
+                  << expr << " at "
+                  << file << '('
+                  << line << ' `'
+                  << function << "`: "
+                  << cudaGetErrorString(status) << std::endl;
+        // following pytest convention, exit code 3 means internal error
+        std::exit(3);
+    }
+}
+
+#define cuda_check(expr) cuda_check(expr, #expr, __FILE__, __LINE__, __FUNCTION__)
 
 float measure_runtime() {
     std::cout << "warming up..." << std::endl;
@@ -15,7 +32,7 @@ float measure_runtime() {
         auto data = generate_input();
         custom_kernel(data);
     }
-    cudaDeviceSynchronize();
+    cuda_check(cudaDeviceSynchronize());
 
     using double_duration = std::chrono::duration<double>;
     double total_duration = 0.0;
@@ -25,7 +42,7 @@ float measure_runtime() {
 
         auto start = std::chrono::high_resolution_clock::now();
         auto submission_output = custom_kernel(data);
-        cudaDeviceSynchronize();
+        cuda_check(cudaDeviceSynchronize());
         auto end = std::chrono::high_resolution_clock::now();
 
         total_duration += std::chrono::duration_cast<double_duration>(end - start).count();
