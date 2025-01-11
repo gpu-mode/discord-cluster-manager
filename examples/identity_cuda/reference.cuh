@@ -43,7 +43,7 @@ bool check_implementation(output_t out, output_t ref, float epsilon = 1e-5) {
 
     for (int j = 0; j < Ns[i]; ++j) {
       if (std::fabs(ref_ptr[j] - out_ptr[j]) > epsilon) {
-        std::cerr <<  "ERROR AT " << j << "  " << ref_ptr[j] << " " << out_ptr[j] << std::endl;
+        std::cerr <<  "ERROR AT " << j << ": " << ref_ptr[j] << " " << out_ptr[j] << std::endl;
         same = false;
         break;
       }

@@ -2,6 +2,10 @@
 #include <vector>
 #include "reference.cuh"
 
+// checks that a CUDA API call returned successfully, otherwise prints an error message and exits.
+static void cuda_check(cudaError_t status, const char* expr, const char* file, int line, const char* function);
+#define cuda_check_(expr) cuda_check(expr, #expr, __FILE__, __LINE__, __FUNCTION__)
+
 __global__ void copy_kernel(float *input, float *output, int N)
 {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -22,11 +26,11 @@ output_t custom_kernel(input_t data)
 
         // Allocate device memory
         float *d_input, *d_output;
-        cudaMalloc(&d_input, N * sizeof(float));
-        cudaMalloc(&d_output, N * sizeof(float));
+        cuda_check_(cudaMalloc(&d_input, N * sizeof(float)));
+        cuda_check_(cudaMalloc(&d_output, N * sizeof(float)));
 
         // Copy input to device
-        cudaMemcpy(d_input, data[i].data(), N * sizeof(float), cudaMemcpyHostToDevice);
+        cuda_check_(cudaMemcpy(d_input, data[i].data(), N * sizeof(float), cudaMemcpyHostToDevice));
 
         // Launch kernel
         int blockSize = 256;
@@ -34,11 +38,11 @@ output_t custom_kernel(input_t data)
         copy_kernel<<<numBlocks, blockSize>>>(d_input, d_output, N);
 
         // Copy result back to host
-        cudaMemcpy(result[i].data(), d_output, N * sizeof(float), cudaMemcpyDeviceToHost);
+        cuda_check_(cudaMemcpy(result[i].data(), d_output, N * sizeof(float), cudaMemcpyDeviceToHost));
 
         // Free device memory
-        cudaFree(d_input);
-        cudaFree(d_output);
+        cuda_check_(cudaFree(d_input));
+        cuda_check_(cudaFree(d_output));
     }
 
     return result;
