@@ -90,6 +90,8 @@ def run_cuda_script(  # # noqa: C901
 
         return run_process.stdout, score
 
+    except subprocess.CalledProcessError as e:
+        return f"Error executing script: {str(e)}\n{e.stderr}", 0.0
     except Exception as e:
         return f"Error executing script: {str(e)}", 0.0
     finally:
