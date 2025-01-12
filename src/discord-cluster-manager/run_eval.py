@@ -1,6 +1,7 @@
 import os
 import subprocess
 import time
+from pathlib import Path
 from typing import Optional
 
 from consts import CUDA_FLAGS
@@ -12,6 +13,7 @@ def run_cuda_script(  # # noqa: C901
     submission_content: str = None,
     arch: int = None,
     include_dirs: list[str] = None,
+    seed: int = 42,
 ) -> tuple[str, float]:
     """
     Executes the provided CUDA kernel in an isolated environment with a timeout
@@ -22,7 +24,7 @@ def run_cuda_script(  # # noqa: C901
         submission_content: The (optional) submission code, used for leaderboards.
         arch: The arch code for the compute/sm versions. If None, native arch is used.
         include_dirs: Additional include directories, e.g., for thunderkittens/cutlass etc
-
+        seed: Seed value to use for generating test cases
     Returns:
         tuple[str, float]: (Kernel output, execution time in milliseconds)
     """
@@ -57,6 +59,9 @@ def run_cuda_script(  # # noqa: C901
         with open("eval.cu", "w") as f:
             f.write(script_content)
 
+        with open("task.h", "w") as f:
+            f.write((Path(__file__).parent / "task.h").read_text())
+
         execution_start_time = time.perf_counter()
         compile_process = subprocess.run(
             ["nvcc"] + CUDA_FLAGS + include_dirs + [ARCH] + NVCC_FILES + ["-o", "eval.out"],
@@ -74,6 +79,7 @@ def run_cuda_script(  # # noqa: C901
         env = os.environ.copy()
         pipe_read, pipe_write = os.pipe()
         env["POPCORN_FD"] = str(pipe_write)
+        env["POPCORN_SEED"] = str(seed)
 
         run_process = subprocess.run(
             ["./eval.out"],
@@ -87,7 +93,6 @@ def run_cuda_script(  # # noqa: C901
         os.close(pipe_write)
         # and fetch pipe's content
         result = os.fdopen(pipe_read, "r").read()
-
         execution_end_time = time.perf_counter()
 
         print("result", result)
