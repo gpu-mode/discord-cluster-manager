@@ -119,12 +119,13 @@ def run_cuda_script(  # # noqa: C901
 
         if score is None:
             score = execution_end_time - execution_start_time
-            if "check_implementation failed" in run_process.stdout:
+            if passed:
                 return "check_implementation failed", 0.0
             else:
+                # This case isn't handled well in modal_cog
                 return None, score
 
-        return run_process.stdout, score
+        return result, score
 
     except subprocess.CalledProcessError as e:
         return f"Error executing script: {str(e)}\n{e.stderr}", 0.0
