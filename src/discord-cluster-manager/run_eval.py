@@ -80,6 +80,7 @@ def run_cuda_script(  # # noqa: C901
         os.close(pipe_write)
         # and fetch pipe's content
         result = os.fdopen(pipe_read, 'r').read()
+
         execution_end_time = time.perf_counter()
 
         print("result", result)
