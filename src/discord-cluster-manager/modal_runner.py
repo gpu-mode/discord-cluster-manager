@@ -80,10 +80,12 @@ def modal_run_pytorch_script(  # noqa: C901
     try:
         with timeout(timeout_seconds):
             run_result = run_pytorch_script(
-                script_content=script_content,
-                reference_content=reference_content,
-                submission_content=submission_content,
-                arch=arch,
+                {
+                    "eval.py": script_content,
+                    "reference.py": reference_content,
+                    "train.py": submission_content,
+                },
+                "eval.py",
             )
             if not run_result.success:
                 # exit code 1 encodes failed tests
@@ -126,9 +128,8 @@ def modal_run_cuda_script(  # # noqa: C901
     try:
         with timeout(timeout_seconds):
             compile_result, run_result = run_cuda_script(
-                script_content,
-                reference_content=reference_content,
-                submission_content=submission_content,
+                {"eval.cu": script_content},
+                {"reference.cuh": reference_content, "train.cuh": submission_content},
                 arch=arch,
                 include_dirs=MODAL_CUDA_INCLUDE_DIRS,
             )

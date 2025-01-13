@@ -20,7 +20,9 @@ def test_does_not_import():
     this is a syntax error
     """
 
-    run = run_pytorch_script(py_eval, ref.read_text(), sub, arch=None)
+    run = run_pytorch_script(
+        {"eval.py": py_eval, "reference.py": ref.read_text(), "train.py": sub}, "eval.py"
+    )
     assert run.success is False
     assert run.exit_code != ExitCode.SUCCESS
     assert "IndentationError: unexpected indent\n" in run.stderr
@@ -33,7 +35,9 @@ import torch
 def custom_kernel(input):
     return [torch.zeros_like(i) for i in input]
         """
-    run = run_pytorch_script(py_eval, ref.read_text(), sub, arch=None)
+    run = run_pytorch_script(
+        {"eval.py": py_eval, "reference.py": ref.read_text(), "train.py": sub}, "eval.py"
+    )
     assert run.success is False
     assert run.command == "python eval.py"
     # we never reach the benchmark part, because the test fails
@@ -46,7 +50,9 @@ def custom_kernel(input):
 def test_correct():
     sub = Path("examples/identity_py/submission.py").read_text()
 
-    run = run_pytorch_script(py_eval, ref.read_text(), sub, arch=None)
+    run = run_pytorch_script(
+        {"eval.py": py_eval, "reference.py": ref.read_text(), "train.py": sub}, "eval.py"
+    )
     assert run.success is True
     assert "warming up..." in run.stdout
     assert run.exit_code == ExitCode.SUCCESS

@@ -20,7 +20,9 @@ def test_does_not_compile():
     output_t custom_kernel(input_tt data) {   }
     """
 
-    comp, run = run_cuda_script(cu_eval, ref.read_text(), sub, arch=None)
+    comp, run = run_cuda_script(
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+    )
     assert comp.success is False
     assert run.success is False
     assert comp.nvcc_found is True
@@ -52,7 +54,9 @@ output_t custom_kernel(input_t data)
 }
 
     """
-    comp, run = run_cuda_script(cu_eval, ref.read_text(), sub, arch=None)
+    comp, run = run_cuda_script(
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+    )
     assert comp.success is True
     assert run.success is False
     assert run.command == "./eval.out"
@@ -80,7 +84,9 @@ def test_cuda_validation_fail():
     }
 
         """
-    comp, run = run_cuda_script(cu_eval, ref.read_text(), sub, arch=None)
+    comp, run = run_cuda_script(
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+    )
     assert comp.success is True
     assert run.success is False
     assert run.command == "./eval.out"
@@ -94,7 +100,9 @@ def test_cuda_validation_fail():
 def test_cuda_correct():
     sub = Path("examples/identity_cuda/submission.cuh").read_text()
 
-    comp, run = run_cuda_script(cu_eval, ref.read_text(), sub, arch=None)
+    comp, run = run_cuda_script(
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+    )
     assert comp.success is True
     assert run.success is True
     assert "warming up..." in run.stdout
