@@ -154,7 +154,7 @@ their own correctness check functions, because some leaderboards may allow for l
 submissions through an allowable error such as `rtol` or `atol`.
 
 ## Deleting a Leaderboard
-If you need to remove a leaderboard, you can use the delete command:
+If you have sufficient permissions on the server, you can also delete leaderboards with:
 
 <center>
 ```
@@ -162,7 +162,7 @@ If you need to remove a leaderboard, you can use the delete command:
 ```
 </center>
 
-This command will display a UI window with a list of available leaderboards. Select the leaderboard you want to delete from the list. Once confirmed, the leaderboard and all associated submissions will be permanently removed.
+This command will display a UI window with a list of available leaderboards. Select the leaderboard you want to delete from the list. Once confirmed, the leaderboard and all associated submissions will be permanently removed. Please use this command with caution, as it will also delete the leaderboard history as well.
 
 ## Example Files
 You can find complete examples of eval.py, reference_code.py, and submission.py files in the discord-cluster-manager repository under the examples directory at discord-cluster-manager/tree/main/examples. These examples demonstrate different types of leaderboards and can serve as templates for creating your own leaderboards.
