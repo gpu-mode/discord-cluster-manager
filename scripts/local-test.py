@@ -11,7 +11,7 @@ sub = Path("examples/identity_cuda/submission.cuh")
 
 cout, score = run_cuda_script(
     {"eval.cu": cu_eval},
-    {"reference.cuh": ref.read_text(), "train.cuh": sub.read_text()},
+    {"reference.cuh": ref.read_text(), "submission.cuh": sub.read_text()},
     arch=None,
 )
 print(cout)

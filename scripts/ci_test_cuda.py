@@ -21,14 +21,14 @@ def test_does_not_compile():
     """
 
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}, arch=None
     )
     assert comp.success is False
     assert run.success is False
     assert comp.nvcc_found is True
     assert comp.exit_code != ExitCode.SUCCESS
     assert comp.stdout == ""
-    assert 'train.cuh(2): error: identifier "input_tt" is undefined' in comp.stderr
+    assert 'submission.cuh(2): error: identifier "input_tt" is undefined' in comp.stderr
     assert '1 error detected in the compilation of "eval.cu".' in comp.stderr
     assert comp.command.startswith("/usr/local/cuda/bin/nvcc")
     assert "nvcc: NVIDIA (R) Cuda compiler driver" in comp.nvcc_version
@@ -55,7 +55,7 @@ output_t custom_kernel(input_t data)
 
     """
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}, arch=None
     )
     assert comp.success is True
     assert run.success is False
@@ -85,7 +85,7 @@ def test_cuda_validation_fail():
 
         """
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}, arch=None
     )
     assert comp.success is True
     assert run.success is True
@@ -102,7 +102,7 @@ def test_cuda_correct():
     sub = Path("examples/identity_cuda/submission.cuh").read_text()
 
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
+        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}, arch=None
     )
     assert comp.success is True
     assert run.success is True

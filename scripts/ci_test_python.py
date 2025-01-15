@@ -21,7 +21,7 @@ def test_does_not_import():
     """
 
     run = run_pytorch_script(
-        {"eval.py": py_eval, "reference.py": ref.read_text(), "train.py": sub}, "eval.py"
+        {"eval.py": py_eval, "reference.py": ref.read_text(), "submission.py": sub}, "eval.py"
     )
     assert run.success is False
     assert run.exit_code != ExitCode.SUCCESS
@@ -37,7 +37,9 @@ def custom_kernel(input):
         """
 
     run = run_pytorch_script(
-        {"eval.py": py_eval, "reference.py": ref.read_text(), "train.py": sub}, "eval.py", arch=None
+        {"eval.py": py_eval, "reference.py": ref.read_text(), "submission.py": sub},
+        "eval.py",
+        arch=None,
     )
     assert run.success is True
     assert run.passed is False
@@ -53,7 +55,7 @@ def test_correct():
     sub = Path("examples/identity_py/submission.py").read_text()
 
     run = run_pytorch_script(
-        {"eval.py": py_eval, "reference.py": ref.read_text(), "train.py": sub}, "eval.py"
+        {"eval.py": py_eval, "reference.py": ref.read_text(), "submission.py": sub}, "eval.py"
     )
     assert run.success is True
     assert "warming up..." in run.stdout
