@@ -7,7 +7,9 @@ from consts import ModalGPU
 from discord import app_commands
 from discord.ext import commands
 from leaderboard_eval import cu_eval, py_eval
-from utils import send_discord_message, send_logs, setup_logging
+from report import generate_report
+from run_eval import FullResult
+from utils import send_discord_message, setup_logging
 
 logger = setup_logging()
 
@@ -33,7 +35,7 @@ class ModalCog(commands.Cog):
         gpu_type: app_commands.Choice[str],
         reference_script: Optional[discord.Attachment] = None,
         reference_code: str = None,
-    ) -> discord.Thread:
+    ) -> tuple[discord.Thread, FullResult]:
         thread = None
         status_msg = None
         try:
@@ -43,11 +45,11 @@ class ModalCog(commands.Cog):
                     "Please provide a Python (.py) or CUDA (.cu / .cuh / .cpp) file",
                     ephemeral=True,
                 )
-                return None
+                return None, None
 
-            # TODO: Maybe find a better way?
             if not interaction.response.is_done():
                 await interaction.response.defer(ephemeral=True)
+
             channel = interaction.channel
             message = await channel.send(f"Starting Modal job with {gpu_type.name}...")
             thread = await message.create_thread(name=f"{gpu_type.name} Modal Job")
@@ -66,7 +68,7 @@ class ModalCog(commands.Cog):
                     else (await reference_script.read()).decode("utf-8")
                 )
 
-            result, score = await self.handle_modal_execution(
+            result = await self.handle_modal_execution(
                 interaction,
                 thread,
                 script_content,
@@ -75,11 +77,7 @@ class ModalCog(commands.Cog):
                 reference_content,
                 status_msg,
             )
-
-            if result is not None and score > 0:
-                await thread.send(f"**score:{score:.9f}**")
-
-            return thread
+            return thread, result
 
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}", exc_info=True)
@@ -97,14 +95,14 @@ class ModalCog(commands.Cog):
         gpu_type: str,
         reference_content: Optional[str],
         status_msg: discord.Message,
-    ) -> tuple[str, float]:
+    ) -> FullResult:
         try:
             loop = asyncio.get_event_loop()
             func_type = "pytorch" if filename.endswith(".py") else "cuda"
             func_name = f"run_{func_type}_script_{gpu_type.lower()}"
 
             if reference_content is not None:
-                result, score = await loop.run_in_executor(
+                result = await loop.run_in_executor(
                     None,
                     lambda: modal.Function.lookup("discord-bot-runner", func_name).remote(
                         py_eval if filename.endswith(".py") else cu_eval,
@@ -112,8 +110,15 @@ class ModalCog(commands.Cog):
                         submission_content=script_content,
                     ),
                 )
+
+                # Send results
+                await thread.send(f"\n**Script size:** {len(script_content)} bytes")
+                await generate_report(thread, result)
+                return result
+
             else:
-                result, score = await loop.run_in_executor(
+                # Currently broken?
+                result = await loop.run_in_executor(
                     None,
                     lambda: modal.Function.lookup("discord-bot-runner", func_name).remote(
                         script_content,
@@ -123,21 +128,12 @@ class ModalCog(commands.Cog):
                     interaction, f"Modal job completed in thread {thread.jump_url}", ephemeral=True
                 )
 
-            # Send results
-            await thread.send(f"\n**Script size:** {len(script_content)} bytes")
-            await thread.send(f"**Execution time:** {score:.3f} s\n")
+                # Send results
+                await thread.send(f"\n**Script size:** {len(script_content)} bytes")
+                await thread.send(f"**Execution time:** {result.run.duration:.3f} s\n")
 
-            if "check_implementation failed" in result or "Error" in result:
-                await thread.send("Modal run failed.\n")
-                await send_logs(thread, result)
-                await status_msg.edit(content="**Running on Modal...**\n> ❌ Job failed!")
-                return result, 0
-
-            if result is not None:
-                await thread.send(f"**score:{score:.9f}**\n```")
-
-            await status_msg.edit(content="**Running on Modal...**\n> ✅ Job completed!")
-            return result, score
+                await status_msg.edit(content="**Running on Modal...**\n> ✅ Job completed!")
+                return result
 
         except Exception as e:
             logger.error(f"Error in handle_modal_execution: {str(e)}", exc_info=True)

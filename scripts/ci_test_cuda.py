@@ -88,7 +88,8 @@ def test_cuda_validation_fail():
         {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "train.cuh": sub}, arch=None
     )
     assert comp.success is True
-    assert run.success is False
+    assert run.success is True
+    assert run.passed is False
     assert run.command == "./eval.out"
     # we never reach the benchmark part, because the test fails
     assert "warming up..." not in run.stdout

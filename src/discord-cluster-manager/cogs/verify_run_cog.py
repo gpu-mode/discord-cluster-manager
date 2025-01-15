@@ -41,10 +41,23 @@ class VerifyRunCog(commands.Cog):
         github_cog: GitHubCog,
         choice: app_commands.Choice,
         interaction: discord.Interaction,
+        lang: str,
     ) -> bool:
         github_command = github_cog.run_github
-        script_file = create_mock_attachment("test_script.py", "print('Hello, world!')")
-        github_thread = await github_command.callback(github_cog, interaction, script_file, choice)
+        if lang == "py":
+            sub_code = create_mock_attachment(
+                "submission.py", Path("examples/identity_py/submission.py").read_text()
+            )
+            ref_code = Path("examples/identity_py/reference.py").read_text()
+        else:
+            sub_code = create_mock_attachment(
+                "test.cu", Path("examples/identity_cuda/submission.cuh").read_text()
+            )
+            ref_code = Path("examples/identity_cuda/reference.cuh").read_text()
+
+        github_thread, result = await github_command.callback(
+            github_cog, interaction, sub_code, choice, reference_code=ref_code
+        )
 
         message_contents = [msg.content async for msg in github_thread.history(limit=None)]
 
@@ -52,7 +65,7 @@ class VerifyRunCog(commands.Cog):
             "Processing `.*` with",
             "GitHub Action triggered! Run ID:",
             "Training completed with status: success",
-            ".*```\nLogs.*:",
+            "'check': 'pass'",
             "View the full run at:",
         ]
 
@@ -64,7 +77,7 @@ class VerifyRunCog(commands.Cog):
         if all_patterns_found:
             await send_discord_message(
                 interaction,
-                f"✅ GitHub run ({choice.name}) completed successfully - "
+                f"✅ GitHub run ({choice.name}) for {lang} completed successfully - "
                 "all expected messages found!",
             )
             return True
@@ -76,26 +89,36 @@ class VerifyRunCog(commands.Cog):
             ]
             await send_discord_message(
                 interaction,
-                f"❌ GitHub run ({choice.name}) verification failed. Missing expected messages:\n"
+                f"❌ GitHub run ({choice.name}) for {lang} verification failed. "
+                + "Missing expected messages:\n"
                 + "\n".join(f"- {pattern}" for pattern in missing_patterns),
             )
             return False
 
-    async def verify_modal_run(self, modal_cog: ModalCog, interaction: discord.Interaction) -> bool:
+    async def verify_modal_run(
+        self, modal_cog: ModalCog, interaction: discord.Interaction, lang: str
+    ) -> bool:
         t4 = app_commands.Choice(name="T4", value="t4")
         modal_command = modal_cog.run_modal
 
-        sub_code = create_mock_attachment(
-            "submission.py", Path("examples/identity_py/submission.py").read_text()
-        )
-        ref_code = Path("examples/identity_py/reference.py").read_text()
-        modal_thread = await modal_command.callback(
+        if lang == "py":
+            sub_code = create_mock_attachment(
+                "submission.py", Path("examples/identity_py/submission.py").read_text()
+            )
+            ref_code = Path("examples/identity_py/reference.py").read_text()
+        else:
+            sub_code = create_mock_attachment(
+                "test.cu", Path("examples/identity_cuda/submission.cuh").read_text()
+            )
+            ref_code = Path("examples/identity_cuda/reference.cuh").read_text()
+
+        modal_thread, result = await modal_command.callback(
             modal_cog, interaction, sub_code, t4, reference_code=ref_code
         )
 
         message_contents = [msg.content async for msg in modal_thread.history(limit=None)]
 
-        required_patterns = ["Running on Modal...", "Job completed!"]
+        required_patterns = ["Running on Modal...", "Success!"]
 
         all_patterns_found = all(
             any(re.search(pattern, content, re.DOTALL) is not None for content in message_contents)
@@ -105,7 +128,7 @@ class VerifyRunCog(commands.Cog):
         if all_patterns_found:
             await send_discord_message(
                 interaction,
-                "✅ Modal run completed successfully - all expected messages found!",
+                f"✅ Modal run for {lang} completed successfully - all expected messages found!",
             )
             return True
         else:
@@ -116,7 +139,7 @@ class VerifyRunCog(commands.Cog):
             ]
             await send_discord_message(
                 interaction,
-                "❌ Modal run verification failed. Missing expected messages:\n"
+                f"❌ Modal run verification for {lang} failed. Missing expected messages:\n"
                 + "\n".join(f"- {pattern}" for pattern in missing_patterns),
             )
             return False
@@ -140,9 +163,11 @@ class VerifyRunCog(commands.Cog):
             amd = app_commands.Choice(name="AMD", value="amd")
 
             results = await asyncio.gather(
-                self.verify_github_run(github_cog, nvidia, interaction),
-                self.verify_github_run(github_cog, amd, interaction),
-                self.verify_modal_run(modal_cog, interaction),
+                self.verify_github_run(github_cog, nvidia, interaction, "py"),
+                self.verify_github_run(github_cog, nvidia, interaction, "cu"),
+                self.verify_modal_run(modal_cog, interaction, "py"),
+                self.verify_github_run(github_cog, amd, interaction, "py"),
+                self.verify_modal_run(modal_cog, interaction, "cu"),
             )
 
             if all(results):

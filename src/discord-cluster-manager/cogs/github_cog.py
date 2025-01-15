@@ -1,7 +1,9 @@
 import asyncio
-import os
+import json
+import tempfile
 import zipfile
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 import discord
 import requests
@@ -10,7 +12,9 @@ from discord import app_commands
 from discord.ext import commands
 from env import GITHUB_REPO, GITHUB_TOKEN
 from github import Github
-from leaderboard_eval import cu_eval, py_eval
+from leaderboard_eval import amd_requirements, nvidia_requirements
+from report import generate_report
+from run_eval import CompileResult, FullResult, RunResult
 from utils import get_github_branch_name, send_discord_message, setup_logging
 
 logger = setup_logging()
@@ -40,12 +44,12 @@ class GitHubCog(commands.Cog):
         gpu_type: app_commands.Choice[str],
         reference_script: discord.Attachment = None,
         reference_code: str = None,
-    ) -> discord.Thread:
+    ) -> tuple[discord.Thread, FullResult]:
         if not script.filename.endswith((".py", ".cu", ".cuh", ".cpp")):
             await send_discord_message(
                 interaction, "Please provide a Python (.py) or CUDA (.cu / .cuh / .cpp) file"
             )
-            return None
+            return None, None
 
         thread = await self.bot.create_thread(interaction, gpu_type.name, "GitHub Job")
         await thread.send(f"Processing `{script.filename}` with {gpu_type.name}...")
@@ -53,7 +57,7 @@ class GitHubCog(commands.Cog):
         try:
             script_content = (await script.read()).decode("utf-8")
             selected_gpu = GPUType.AMD if gpu_type.value == "amd" else GPUType.NVIDIA
-            filename = "train.py" if script.filename.endswith(".py") else "train.cu"
+            lang = "py" if script.filename.endswith(".py") else "cu"
 
             if reference_script is not None or reference_code is not None:
                 reference_content = (
@@ -61,30 +65,31 @@ class GitHubCog(commands.Cog):
                     if reference_code is not None
                     else (await reference_script.read()).decode("utf-8")
                 )
-                eval_code = py_eval if script.filename.endswith(".py") else cu_eval
-
-                run_id = await self.trigger_github_action(
-                    script_content,
-                    filename,
-                    selected_gpu,
-                    reference_content,
-                    eval_code,
-                )
             else:
-                run_id = await self.trigger_github_action(script_content, filename, selected_gpu)
+                reference_content = None
+
+            run_id = await self.trigger_github_run(
+                lang=lang,
+                gpu_type=selected_gpu,
+                script_content=script_content,
+                reference_content=reference_content,
+            )
 
             if run_id:
                 await thread.send(
                     f"GitHub Action triggered! Run ID: {run_id}\nMonitoring progress..."
                 )
-                status, logs, url = await self.check_workflow_status(run_id, thread)
+                status, result, url = await self.check_workflow_status(run_id, thread, gpu_type)
 
                 await thread.send(f"Training completed with status: {status}")
 
-                if len(logs) > 1900:
-                    await self.bot.send_chunked_message(thread, logs, code_block=True)
+                if isinstance(result, FullResult):
+                    await generate_report(thread, result)
                 else:
-                    await thread.send(f"```\nLogs:\n{logs}\n```")
+                    if len(result) > 1900:
+                        await self.bot.send_chunked_message(thread, result, code_block=True)
+                    else:
+                        await thread.send(f"```\nLogs:\n{result}\n```")
 
                 if url:
                     await thread.send(f"View the full run at: <{url}>")
@@ -93,7 +98,7 @@ class GitHubCog(commands.Cog):
                     "Failed to trigger GitHub Action. Please check the configuration."
                 )
 
-            return thread
+            return thread, result
 
         except Exception as e:
             logger.error(f"Error processing request: {str(e)}", exc_info=True)
@@ -101,15 +106,24 @@ class GitHubCog(commands.Cog):
                 await thread.send(f"Error processing request: {str(e)}")
             raise
 
-    async def trigger_github_action(
-        self,
-        script_content,
-        filename,
-        gpu_type,
-        reference_content=None,
-        eval_content=None,
+    async def trigger_github_run(
+        self, lang: str, gpu_type: GPUType, script_content: str, reference_content: Optional[str]
     ):
-        logger.info(f"Attempting to trigger GitHub action for {gpu_type.name} GPU")
+        if lang == "cu" and gpu_type == GPUType.AMD:
+            # TODO implement HIP
+            raise ValueError("Cannot use CUDA runs with AMD GPUs")
+
+        eval_name = {"py": "eval.py", "cu": "eval.cu"}[lang]
+        ref_name = {"py": "reference.py", "cu": "reference.cuh"}[lang]
+        sub_name = {"py": "submission.py", "cu": "submission.cuh"}[lang]
+        lang_name = {"py": "Python", "cu": "CUDA"}[lang]
+
+        if reference_content is None:
+            config = {eval_name: script_content, "lang": lang}
+        else:
+            config = {ref_name: reference_content, sub_name: script_content, "lang": lang}
+
+        logger.info(f"Attempting to trigger GitHub action for {lang_name} on {gpu_type.name}")
         gh = Github(GITHUB_TOKEN)
         repo = gh.get_repo(GITHUB_REPO)
 
@@ -118,27 +132,16 @@ class GitHubCog(commands.Cog):
             workflow_file = gpu_type.value
             workflow = repo.get_workflow(workflow_file)
 
-            if reference_content is not None:
-                eval_filename = "eval.py" if filename.endswith(".py") else "eval.cu"
-                reference_filename = "reference.py" if filename.endswith(".py") else "reference.cuh"
-                filename = "train.py" if filename.endswith(".py") else "train.cuh"
-                success = workflow.create_dispatch(
-                    get_github_branch_name(),
-                    {
-                        "script_content": script_content,
-                        "filename": filename,
-                        "reference_content": reference_content,
-                        "reference_filename": reference_filename,
-                        "eval_content": eval_content,
-                        "eval_filename": eval_filename,
-                    },
-                )
-            else:
-                success = workflow.create_dispatch(
-                    get_github_branch_name(),
-                    {"script_content": script_content, "filename": filename},
-                )
+            payload = json.dumps(config)
 
+            inputs = {"payload": payload}
+            if lang == "py":
+                if gpu_type == GPUType.NVIDIA:
+                    inputs["requirements"] = nvidia_requirements
+                else:
+                    inputs["requirements"] = amd_requirements
+
+            success = workflow.create_dispatch(get_github_branch_name(), inputs=inputs)
             if success:
                 await asyncio.sleep(2)
                 runs = list(workflow.get_runs())
@@ -152,7 +155,7 @@ class GitHubCog(commands.Cog):
             logger.error(f"Error in trigger_github_action: {str(e)}", exc_info=True)
             return None
 
-    async def check_workflow_status(self, run_id, thread):
+    async def check_workflow_status(self, run_id, thread, gpu_type):
         logger.info(f"Starting to monitor workflow status for run {run_id}")
         gh = Github(GITHUB_TOKEN)
         repo = gh.get_repo(GITHUB_REPO)
@@ -187,8 +190,8 @@ class GitHubCog(commands.Cog):
                     )
 
                 if run.status == "completed":
-                    logs = await self.download_artifact(run_id)
-                    return run.conclusion, logs, run.html_url
+                    result = await self.download_results(run_id)
+                    return run.conclusion, result, run.html_url
 
                 await thread.send(
                     f"Workflow: {run.status} running for "
@@ -197,43 +200,57 @@ class GitHubCog(commands.Cog):
                 )
                 await asyncio.sleep(20)
             except Exception as e:
+                logger.error("Error", exc_info=e)
                 return "error", str(e), None
 
-    async def download_artifact(self, run_id):
-        logger.info(f"Attempting to download artifacts for run {run_id}")
+    async def download_results(self, run_id) -> FullResult:
+        try:
+            data = await self.download_artifact(run_id, name="run-result")
+            logs = data["result.json"].decode("utf-8")
+            data = json.loads(logs)
+            if "compile" in data:
+                comp = CompileResult(**data["compile"])
+            else:
+                comp = None
+            run = RunResult(**data["run"])
+            return FullResult(success=True, error="", compile=comp, run=run)
+        except Exception as e:
+            logger.error("Error downloading artifacts", exc_info=e)
+            return FullResult(
+                success=False,
+                error=f"Error downloading artifacts: {repr(e)}",
+                compile=None,
+                run=None,
+            )
+
+    async def download_artifact(self, run_id, name: str):
+        logger.info(f"Attempting to download artifact {name} for run {run_id}")
         gh = Github(GITHUB_TOKEN)
         repo = gh.get_repo(GITHUB_REPO)
 
-        try:
-            run = repo.get_workflow_run(run_id)
-            artifacts = run.get_artifacts()
+        run = repo.get_workflow_run(run_id)
+        artifacts = run.get_artifacts()
 
-            for artifact in artifacts:
-                if artifact.name == "training-artifacts":
-                    url = artifact.archive_download_url
-                    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-                    response = requests.get(url, headers=headers)
+        for artifact in artifacts:
+            if artifact.name == name:
+                url = artifact.archive_download_url
+                headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+                response = requests.get(url, headers=headers)
 
-                    if response.status_code == 200:
-                        with open("training.log.zip", "wb") as f:
-                            f.write(response.content)
+                if response.status_code == 200:
+                    with tempfile.NamedTemporaryFile("w+b") as temp:
+                        temp.write(response.content)
+                        temp.flush()
 
-                        with zipfile.ZipFile("training.log.zip") as z:
-                            log_file = next(
-                                (f for f in z.namelist() if f.endswith("training.log")),
-                                None,
-                            )
-                            if log_file:
-                                with z.open(log_file) as f:
-                                    logs = f.read().decode("utf-8")
-                            else:
-                                logs = "training.log file not found in artifact"
+                        with zipfile.ZipFile(temp.name) as z:
+                            artifact_dict = {}
+                            for file in z.namelist():
+                                with z.open(file) as f:
+                                    artifact_dict[file] = f.read()
 
-                        os.remove("training.log.zip")
-                        return logs
-                    else:
-                        return f"Failed to download artifact. Status code: {response.status_code}"
-
-            return "No training artifacts found"
-        except Exception as e:
-            return f"Error downloading artifacts: {str(e)}"
+                    return artifact_dict
+                else:
+                    raise RuntimeError(
+                        f"Failed to download artifact. Status code: {response.status_code}"
+                    )
+        raise RuntimeError(f"Could not find artifact {name}")
