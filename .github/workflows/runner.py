@@ -13,17 +13,21 @@ Path("payload.json").unlink()
 
 if config["lang"] == "cu":
     comp, run = run_cuda_script(
-        config.get("eval.cu", cu_eval),
-        config.get("reference.cuh", None),
-        config.get("submission.cuh", None),
+        {
+            "eval.cu": config.get("eval.cu", cu_eval),
+            "reference.cuh": config.get("reference.cuh", None),
+            "submission.cuh": config.get("submission.cuh", None),
+        },
         arch=None,
     )
     result = {"compile": asdict(comp), "run": asdict(run)}
 else:
     run = run_pytorch_script(
-        config.get("eval.py", py_eval),
-        config.get("reference.py", None),
-        config.get("submission.py", None),
+        {
+            "eval.py": config.get("eval.py", py_eval),
+            "reference.py": config.get("reference.py", None),
+            "submission.py": config.get("submission.py", None),
+        },
         arch=None,
     )
     result = {"run": asdict(run)}

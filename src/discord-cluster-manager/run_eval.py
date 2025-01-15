@@ -220,7 +220,7 @@ def run_cuda_script(  # # noqa: C901
 
         run_result = run_program(["./eval.out"])
         return compile_result, run_result
-      
+
     # cleaning up all source files _before_ we let the user code run, just in
     # case there's something in there that the user isn't supposed to snoop
     finally:
