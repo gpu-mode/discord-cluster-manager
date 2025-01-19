@@ -47,8 +47,9 @@ async def webhook(leaderboard_name: str, runner_name: str, gpu_type: str, file: 
         reference_code = leaderboard_item["reference_code"]
 
     runner_cog: SubmitCog = bot_instance.get_cog(cog_name)
+    language = "cu" if file.filename.endswith((".cu", ".cuh", ".cpp")) else "py"
     config = build_task_config(
-        "cu",
+        language,
         reference_code,
         file.file.read().decode("utf-8"),
         runner_cog._get_arch(app_commands.Choice(name=gpu_name, value=gpu_name)),
