@@ -29,8 +29,8 @@ class MockProgressReporter:
         pass
 
 
-@app.post("/{runner_name}/{leaderboard_name}/{gpu_type}")
-async def webhook(runner_name: str, leaderboard_name: str, gpu_type: str, file: UploadFile):
+@app.post("/{leaderboard_name}/{runner_name}/{gpu_type}")
+async def webhook(leaderboard_name: str, runner_name: str, gpu_type: str, file: UploadFile):
     """
     Webhook endpoint that accepts file submissions and runs them using Modal
     """
@@ -59,3 +59,21 @@ async def webhook(runner_name: str, leaderboard_name: str, gpu_type: str, file: 
     result = await runner_cog._run_submission(config, gpu, MockProgressReporter())
 
     return {"status": "success", "result": asdict(result)}
+
+
+@app.get("/leaderboards")
+async def get_leaderboards():
+    with bot_instance.leaderboard_db as db:
+        return db.get_leaderboards()
+
+
+@app.get("/{leaderboard_name}/{runner_name}/gpus")
+async def get_gpus(leaderboard_name: str, runner_name: str):
+    with bot_instance.leaderboard_db as db:
+        gpu_types = db.get_leaderboard_gpu_types(leaderboard_name)
+
+    runner_name = {"github": "GitHub", "modal": "Modal"}[runner_name]
+    runner_gpu_types = GPU_SELECTION[runner_name]
+    runner_gpu_names = [gpu.name for gpu in runner_gpu_types]
+
+    return [x for x in gpu_types if x in runner_gpu_names]
