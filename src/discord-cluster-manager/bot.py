@@ -1,7 +1,6 @@
 import argparse
 import asyncio
 from datetime import datetime
-from typing import Optional
 
 import discord
 import uvicorn
@@ -29,9 +28,6 @@ from leaderboard_db import LeaderboardDB
 from utils import setup_logging
 
 logger = setup_logging()
-
-# Global bot instance
-bot_instance: Optional["ClusterBot"] = None
 
 
 class ClusterBot(commands.Bot):
@@ -244,12 +240,11 @@ class ClusterBot(commands.Bot):
         try:
             await self.start(token)
         except Exception as e:
-            logger.error(f"Failed to start bot: {e}")
+            logger.error(f"Failed to start bot: {e}", exc_info=e)
             raise e
 
 
 async def start_bot_and_api(debug_mode: bool):
-    global bot_instance
     token = DISCORD_DEBUG_TOKEN if debug_mode else DISCORD_TOKEN
 
     if debug_mode and not token:
