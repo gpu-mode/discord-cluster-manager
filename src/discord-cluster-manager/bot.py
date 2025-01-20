@@ -257,6 +257,7 @@ async def start_bot_and_api(debug_mode: bool):
     config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
     server = uvicorn.Server(config)
 
+    # we need this as discord and fastapi both run on the same event loop
     await asyncio.gather(bot_instance.start_bot(token), server.serve())
 
 
