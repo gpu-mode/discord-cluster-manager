@@ -13,10 +13,18 @@ on:
 
 jobs:
   run:
-    runs-on: [amdgpu-mi250-x86-64]
+    runs-on: ${{ matrix.runs-on }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: mi300
+            runs-on: amdgpu-mi300-x86-64
+            venv-dir: ${{ github.workspace }}
+          - name: mi250
+            runs-on: amdgpu-mi300-x86-64
+            venv-dir: /groups/aig_sharks/pytorch_venv
     timeout-minutes: 10
-    env:
-      VENV_DIR: /groups/aig_sharks/pytorch_venv
     steps:
     - uses: actions/checkout@v3
     - name: Setup Python
@@ -35,8 +43,8 @@ jobs:
     - name: Setup Virtual Environment and Install Dependencies
       shell: bash
       run: |
-        python -m venv ${VENV_DIR}
-        source ${VENV_DIR}/bin/activate
+        python -m venv ${{ matrix.venv-dir }}
+        source ${{ matrix.venv-dir }}/bin/activate
         pip install --upgrade pip
 
         if [[ -n "${{ github.event.inputs.requirements }}" ]]; then
@@ -55,6 +63,6 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: run-result
+        name: run-result-${{ matrix.name }}
         path: |
           result.json
