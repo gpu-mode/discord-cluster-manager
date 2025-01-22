@@ -20,9 +20,9 @@ jobs:
         include:
           - name: mi300
             runs-on: amdgpu-mi300-x86-64
-            venv-dir: ${{ github.workspace }}
+            venv-dir: $GITHUB_WORKSPACE
           - name: mi250
-            runs-on: amdgpu-mi300-x86-64
+            runs-on: amdgpu-mi250-x86-64
             venv-dir: /groups/aig_sharks/pytorch_venv
     timeout-minutes: 10
     steps:
