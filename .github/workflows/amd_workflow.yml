@@ -46,7 +46,7 @@ jobs:
         python -m venv ${{ matrix.venv-dir }}
         source ${{ matrix.venv-dir }}/bin/activate
         pip install --upgrade pip
-
+        pip install torch pytorch-triton-rocm --index-url https://download.pytorch.org/whl/nightly/rocm6.2
         if [[ -n "${{ github.event.inputs.requirements }}" ]]; then
           cat > "requirements.txt" <<'EOL'
           ${{ github.event.inputs.requirements }}
