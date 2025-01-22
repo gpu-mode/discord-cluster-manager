@@ -56,6 +56,7 @@ jobs:
     - name: Run script
       shell: bash
       run: |
+        source ${{ matrix.venv-dir }}/bin/activate
         python3 .github/workflows/runner.py
         cat result.json  # Debug: show output
 
