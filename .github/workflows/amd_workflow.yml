@@ -1,5 +1,7 @@
 name: AMD PyTorch Job
 on:
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
     inputs:
       payload:
@@ -63,6 +65,6 @@ jobs:
       uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: run-result
+        name: run-result-${{ matrix.name }}
         path: |
           result.json
