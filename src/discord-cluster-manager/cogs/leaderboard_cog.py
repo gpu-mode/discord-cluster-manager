@@ -200,6 +200,11 @@ class LeaderboardSubmitCog(app_commands.Group):
         if not interaction.response.is_done():
             await interaction.response.defer(ephemeral=True)
         if len(gpus) == 1:
+            await send_discord_message(
+                interaction,
+                f"Running on GPU: **{gpus[0]}**",
+                ephemeral=True,
+            )
             selected_gpus = gpus
         else:
             view = await self.select_gpu_view(interaction, leaderboard_name, gpus)
