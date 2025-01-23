@@ -102,9 +102,6 @@ class LeaderboardSubmitCog(app_commands.Group):
         """
         UI displayed to user to select GPUs that they want to use.
         """
-        if not interaction.response.is_done():
-            await interaction.response.defer(ephemeral=True)
-
         view = GPUSelectionView(gpus)
 
         await send_discord_message(
@@ -200,6 +197,8 @@ class LeaderboardSubmitCog(app_commands.Group):
 
         # if there is more than one candidate GPU, display UI to let user select,
         # otherwise just run on that GPU
+        if not interaction.response.is_done():
+            await interaction.response.defer(ephemeral=True)
         if len(gpus) == 1:
             selected_gpus = gpus
         else:
