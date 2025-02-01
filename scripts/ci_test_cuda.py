@@ -142,15 +142,15 @@ output_t custom_kernel(input_t data)
             """
     # doesn't compile without define
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval},
-        {"reference.cuh": ref.read_text(), "submission.cuh": sub},
+        {"eval.cu": eval_cu, "submission.cu": sub},
+        header_files,
     )
     assert comp.success is False
 
     # compiles with define
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval},
-        {"reference.cuh": ref.read_text(), "submission.cuh": sub},
+        {"eval.cu": eval_cu, "submission.cu": sub},
+        header_files,
         defines={"TEST_FROM_DEFINE": 'std::cout << "TEST TEXT" << std::endl;'},
     )
     assert comp.success is True
@@ -163,22 +163,20 @@ output_t custom_kernel(input_t data)
 
 def test_include_dirs(tmp_path: Path):
     (tmp_path / "include_from_path.h").write_text(
-        Path("examples/identity_cuda/submission.cuh").read_text()
+        Path("examples/identity_cuda/submission.cu").read_text()
     )
     sub = """
 #include "include_from_path.h"
 """
 
     # verify that naive does not work:
-    comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}
-    )
+    comp, run = run_cuda_script({"eval.cu": eval_cu, "submission.cu": sub}, header_files)
     assert comp.success is False
 
     # but with include dirs, it works
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval},
-        {"reference.cuh": ref.read_text(), "submission.cuh": sub},
+        {"eval.cu": eval_cu, "submission.cu": sub},
+        header_files,
         include_dirs=[".", tmp_path],
     )
 
@@ -190,8 +188,8 @@ def test_include_dirs(tmp_path: Path):
 
     # can also use generic flags argument
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval},
-        {"reference.cuh": ref.read_text(), "submission.cuh": sub},
+        {"eval.cu": eval_cu, "submission.cu": sub},
+        header_files,
         flags=["-I.", f"-I{tmp_path}"],
     )
 
@@ -199,7 +197,7 @@ def test_include_dirs(tmp_path: Path):
 
 
 def test_link_libs(tmp_path: Path):
-    sub = Path("examples/identity_cuda/submission.cuh").read_text()
+    sub = Path("examples/identity_cuda/submission.cu").read_text()
     sub += """
 #include <cuda.h>
 void function_that_uses_cuda_lib() {
@@ -209,14 +207,12 @@ void function_that_uses_cuda_lib() {
 }
 """
     # without extra link libs, this doesn't compile
-    comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}
-    )
+    comp, run = run_cuda_script({"eval.cu": eval_cu, "submission.cu": sub}, header_files)
     assert comp.success is False
 
     comp, run = run_cuda_script(
-        {"eval.cu": cu_eval},
-        {"reference.cuh": ref.read_text(), "submission.cuh": sub},
+        {"eval.cu": eval_cu, "submission.cu": sub},
+        header_files,
         libraries=["cuda"],
     )
 
@@ -240,18 +236,14 @@ output_t custom_kernel(input_t data)
 }
     """
 
-    comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}, arch=None
-    )
+    comp, run = run_cuda_script({"eval.cu": eval_cu, "submission.cu": sub}, header_files, arch=None)
     assert run.success
     assert len(run.stdout) < 16384
     assert "[...]" in run.stdout
 
     sub = sub.replace("std::cout", "std::cerr")
 
-    comp, run = run_cuda_script(
-        {"eval.cu": cu_eval}, {"reference.cuh": ref.read_text(), "submission.cuh": sub}, arch=None
-    )
+    comp, run = run_cuda_script({"eval.cu": eval_cu, "submission.cu": sub}, header_files, arch=None)
     assert run.success
     assert len(run.stderr) < 16384
     assert "[...]" in run.stderr

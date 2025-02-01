@@ -43,7 +43,7 @@ class LeaderboardTask:
     lang: Language
     files: dict[str, str]
     config: CudaTaskData | PythonTaskData
-    description: str = ''
+    description: str = ""
     libraries: list[str] = dataclasses.field(default_factory=list)
 
     @staticmethod
@@ -74,9 +74,13 @@ class LeaderboardTask:
 def make_task(yaml_file: str | Path) -> LeaderboardTask:
     import yaml
 
+    if Path(yaml_file).is_dir():
+        yaml_file = Path(yaml_file) / "task.yml"
+
     with open(yaml_file) as f:
         raw = yaml.safe_load(f)
 
+    root = Path(yaml_file).parent
     user_file_name = raw.get("user_file_name", None)
 
     # now, build file dict
@@ -90,7 +94,7 @@ def make_task(yaml_file: str | Path) -> LeaderboardTask:
             assert user_file_name is None
             file_dict[name] = "@SUBMISSION@"
         else:
-            file_dict[name] = Path(source).read_text()
+            file_dict[name] = (root / source).read_text()
 
     raw["files"] = file_dict
     return LeaderboardTask.from_dict(raw)

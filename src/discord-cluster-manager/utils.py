@@ -203,7 +203,6 @@ def build_task_config(
         if lang == "py":
             config["main"] = "eval.py"
 
-
         return {
             **config,
             "sources": {

@@ -18,6 +18,7 @@ def check_implementation(submission_output, reference_output) -> bool:
     for i in range(N_SIZES):
         reasons = verbose_allclose(submission_output[i], reference_output[i])
         if len(reasons) > 0:
+            print("mismatch found! custom implementation doesnt match reference.", file=sys.stderr)
             for reason in reasons:
                 print(reason, file=sys.stderr)
             return False
