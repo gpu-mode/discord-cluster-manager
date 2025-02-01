@@ -24,18 +24,22 @@ async def leaderboard_name_autocomplete(
     current: str,
 ) -> list[discord.app_commands.Choice[str]]:
     """Return leaderboard names that match the current typed name"""
-    cached_value = leaderboard_name_cache[current]
-    if cached_value is not None:
-        return cached_value
+    try:
+        cached_value = leaderboard_name_cache[current]
+        if cached_value is not None:
+            return cached_value
 
-    bot = interaction.client
-    with bot.leaderboard_db as db:
-        leaderboards = db.get_leaderboards()
-    filtered = [lb["name"] for lb in leaderboards if current.lower() in lb["name"].lower()]
-    leaderboard_name_cache[current] = [
-        discord.app_commands.Choice(name=name, value=name) for name in filtered[:25]
-    ]
-    return leaderboard_name_cache[current]
+        bot = interaction.client
+        with bot.leaderboard_db as db:
+            leaderboards = db.get_leaderboard_names()
+        filtered = [lb for lb in leaderboards if current.lower() in lb.lower()]
+        leaderboard_name_cache[current] = [
+            discord.app_commands.Choice(name=name, value=name) for name in filtered[:25]
+        ]
+        return leaderboard_name_cache[current]
+    except Exception as e:
+        logging.exception("Error in leaderboard autocomplete", exc_info=e)
+        return []
 
 
 class LeaderboardDB:
@@ -158,6 +162,10 @@ class LeaderboardDB:
         except psycopg2.Error as e:
             print(f"Error during leaderboard submission: {e}")
             self.connection.rollback()  # Ensure rollback if error occurs
+
+    def get_leaderboard_names(self) -> list[str]:
+        self.cursor.execute("SELECT name FROM leaderboard.leaderboard")
+        return self.cursor.fetchall()
 
     def get_leaderboards(self) -> list[LeaderboardItem]:
         self.cursor.execute(
