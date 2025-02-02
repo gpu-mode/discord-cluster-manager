@@ -12,6 +12,18 @@ def set_seed(seed=42):
         torch.cuda.manual_seed_all(seed)
 
 
+def get_device(use_cuda: bool = True) -> torch.device:
+    """Get the appropriate device (GPU or CPU)."""
+    if use_cuda:
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            return torch.device("mps")
+        else:
+            print("No compatible GPU found. Falling back to CPU.")
+    return torch.device("cpu")
+
+
 # Adapted from https://github.com/linkedin/Liger-Kernel/blob/main/test/utils.py
 def verbose_allclose(
         tensor1: torch.Tensor,
