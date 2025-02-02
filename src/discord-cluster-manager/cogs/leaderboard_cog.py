@@ -28,6 +28,17 @@ from utils import (
 logger = setup_logging()
 
 
+async def leaderboard_dir_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[discord.app_commands.Choice[str]]:
+    """Return leaderboard names that match the current typed name"""
+    root = Path("examples")
+    return list(
+        discord.app_commands.Choice(name=str(x), value=str(x)) for x in root.iterdir() if x.is_dir()
+    )
+
+
 class LeaderboardSubmitCog(app_commands.Group):
     def __init__(self, bot):
         super().__init__(name="submit", description="Submit to leaderboard")
@@ -598,6 +609,7 @@ class LeaderboardCog(commands.Cog):
         leaderboard_name="Name of the leaderboard",
         directory="Directory of the kernel definition",
     )
+    @app_commands.autocomplete(directory=leaderboard_dir_autocomplete)
     async def leaderboard_create_local(
         self,
         interaction: discord.Interaction,
@@ -625,17 +637,16 @@ class LeaderboardCog(commands.Cog):
         with self.bot.leaderboard_db as db:
             db.delete_leaderboard(leaderboard_name)
 
-        await self.create_leaderboard_in_db(
+        if await self.create_leaderboard_in_db(
             interaction,
             leaderboard_name,
             datetime.now(timezone.utc) + timedelta(days=365),
             task=task,
-        )
-
-        await send_discord_message(
-            interaction,
-            f"Leaderboard '{leaderboard_name}' created.",
-        )
+        ):
+            await send_discord_message(
+                interaction,
+                f"Leaderboard '{leaderboard_name}' created.",
+            )
 
     @discord.app_commands.describe(
         leaderboard_name="Name of the leaderboard",
