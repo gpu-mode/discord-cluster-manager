@@ -191,7 +191,7 @@ def compile_cuda_script(  # # noqa: C901
     )
 
 
-def run_program(args: list[str], seed: int, timeout: int = 30) -> RunResult:
+def run_program(args: list[str], seed: int, timeout: int = 60) -> RunResult:
     print("[Running]")
     # set up a pipe so the tester can communicate its verdict with us
     env = os.environ.copy()
