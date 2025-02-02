@@ -711,7 +711,7 @@ class LeaderboardCog(commands.Cog):
                 with tempfile.NamedTemporaryFile("w+b") as temp:
                     temp.write(await task_zip.read())
                     temp.flush()
-                    with zipfile.ZipFile(temp, 'r') as zip_ref:
+                    with zipfile.ZipFile(temp, "r") as zip_ref:
                         zip_ref.extractall(tmpdir)
 
                 contents = list(Path(tmpdir).iterdir())
@@ -771,7 +771,7 @@ class LeaderboardCog(commands.Cog):
             if file == "task.yml":
                 await send_discord_message(
                     interaction,
-                    f"Error in leaderboard creation. Missing `task.yml`.",
+                    "Error in leaderboard creation. Missing `task.yml`.",
                     ephemeral=True,
                 )
             else:
