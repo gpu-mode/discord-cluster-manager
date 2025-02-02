@@ -34,9 +34,9 @@ async def leaderboard_dir_autocomplete(
 ) -> list[discord.app_commands.Choice[str]]:
     """Return leaderboard names that match the current typed name"""
     root = Path("examples")
-    return list(
-        discord.app_commands.Choice(name=str(x), value=str(x)) for x in root.iterdir() if x.is_dir()
-    )
+    return [
+        discord.app_commands.Choice(name=x.name, value=x.name) for x in root.iterdir() if x.is_dir()
+    ]
 
 
 class LeaderboardSubmitCog(app_commands.Group):
