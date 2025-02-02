@@ -89,7 +89,7 @@ class LeaderboardDB:
         try:
             self.cursor.execute(
                 """
-                INSERT INTO leaderboard.leaderboard (name, deadline, reference_code, creator_id)
+                INSERT INTO leaderboard.leaderboard (name, deadline, task, creator_id)
                 VALUES (%s, %s, %s, %s)
                 RETURNING id
                 """,
@@ -170,7 +170,7 @@ class LeaderboardDB:
     def get_leaderboards(self) -> list[LeaderboardItem]:
         self.cursor.execute(
             """
-            SELECT id, name, deadline, reference_code, creator_id
+            SELECT id, name, deadline, task, creator_id
             FROM leaderboard.leaderboard
             """
         )
@@ -189,7 +189,7 @@ class LeaderboardDB:
                     id=lb[0],
                     name=lb[1],
                     deadline=lb[2],
-                    task=LeaderboardTask.from_str(lb[3]),
+                    task=LeaderboardTask.from_dict(lb[3]),
                     gpu_types=gpu_types,
                     creator_id=lb[4],
                 )
@@ -221,7 +221,7 @@ class LeaderboardDB:
     def get_leaderboard(self, leaderboard_name: str) -> LeaderboardItem | None:
         self.cursor.execute(
             """
-            SELECT id, name, deadline, reference_code, creator_id
+            SELECT id, name, deadline, task, creator_id
             FROM leaderboard.leaderboard
             WHERE name = %s
             """,
@@ -233,7 +233,7 @@ class LeaderboardDB:
         if res:
             # TODO: This is just a clutch to keep compatibility with old leaderboards
             try:
-                task = LeaderboardTask.from_str(res[3])
+                task = LeaderboardTask.from_dict(res[3])
             except json.JSONDecodeError:
                 logging.error("json decoding error in LB %s. Legacy task?", leaderboard_name)
                 task = build_from_legacy_reference(res[3])
