@@ -165,7 +165,7 @@ class LeaderboardDB:
 
     def get_leaderboard_names(self) -> list[str]:
         self.cursor.execute("SELECT name FROM leaderboard.leaderboard")
-        return self.cursor.fetchall()
+        return [x[0] for x in self.cursor.fetchall()]
 
     def get_leaderboards(self) -> list[LeaderboardItem]:
         self.cursor.execute(
