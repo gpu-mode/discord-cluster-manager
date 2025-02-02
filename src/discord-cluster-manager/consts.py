@@ -42,6 +42,10 @@ class ExitCode(IntEnum):
     PIPE_FAILED = 111
     # didn't crash, but tests failed
     VALIDATE_FAIL = 112
+    # problem parsing test/benchmark
+    TEST_SPEC = 113
+    # process was shut down because it timed out
+    TIMEOUT_EXPIRED = 114
 
 
 class SubmissionMode(Enum):

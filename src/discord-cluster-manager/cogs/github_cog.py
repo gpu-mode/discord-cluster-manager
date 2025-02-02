@@ -53,6 +53,11 @@ class GitHubCog(SubmitCog):
         await status.push("Downloading artifacts...")
 
         artifacts = await run.download_artifacts()
+        if "run_results" not in artifacts:
+            logger.error("Could not find `run_results` among artifacts: %s", artifacts.keys())
+            await status.push("Downloading artifacts...  failed")
+            return FullResult(success=False, error="Could not download artifacts", compile=None, run=None)
+
         logs = artifacts["run-result"]["result.json"].decode("utf-8")
 
         await status.update("Downloading artifacts... done")

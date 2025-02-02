@@ -186,7 +186,7 @@ def compile_cuda_script(  # # noqa: C901
     )
 
 
-def run_program(args: list[str], seed: int) -> RunResult:
+def run_program(args: list[str], seed: int, timeout: int = 30) -> RunResult:
     print("[Running]")
     # set up a pipe so the tester can communicate its verdict with us
     env = os.environ.copy()
@@ -195,15 +195,27 @@ def run_program(args: list[str], seed: int) -> RunResult:
     env["POPCORN_SEED"] = str(seed)
 
     execution_start_time = time.perf_counter()
-    run_process = subprocess.run(
-        args,
-        capture_output=True,
-        text=True,
-        check=False,
-        env=env,
-        pass_fds=[pipe_write],
-        timeout=10
-    )
+    try:
+        run_process = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            check=False,
+            env=env,
+            pass_fds=[pipe_write],
+            timeout=timeout
+        )
+    except subprocess.TimeoutExpired as e:
+        return RunResult(
+            success=False,
+            passed=False,
+            command=_make_cmd(e.cmd),
+            stdout=_limit_length(e.stdout),
+            stderr=_limit_length(e.stderr),
+            exit_code=ExitCode.TIMEOUT_EXPIRED,
+            duration=timeout,
+            result=None,
+        )
     execution_end_time = time.perf_counter()
 
     # terminate output writing
