@@ -1,6 +1,4 @@
-import logging
 import time
-from logging import getLogger, FileHandler, StreamHandler
 import os
 import sys
 import math
@@ -12,22 +10,24 @@ from reference import ref_kernel, check_implementation, generate_input
 WARMUP_RUNS = 10
 TIMED_RUNS = 100
 
-logger = getLogger("PopcornOutput")
-logger.setLevel(logging.INFO)
+class PopcornOutput:
+    def __init__(self, fd: int):
+        self.file = os.fdopen(fd, 'w')
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.file.close()
+    
+    def print(self, *args, **kwargs):
+        print(*args, **kwargs, file=self.file, flush=True)
+    
+    def log(self, key, value):
+        self.print(f"{key}: {value}")
 
-def setup_logger(fd):
-    file_obj = os.fdopen(int(fd), 'w')
-    handler = StreamHandler(file_obj)
-    handler.setLevel(logging.INFO)
 
-    logger.addHandler(handler)
-    return logger
-
-def log(key, value):
-    logger.info(f"{key}: {value}")
-
-
-def measure_runtime():
+def measure_runtime(logger: PopcornOutput):
     print("warming up...")
 
     warmup_data = generate_input()
@@ -45,7 +45,7 @@ def measure_runtime():
 
         reference_output = ref_kernel(data)
         if not check_implementation(submission_output, reference_output):
-            log("check", "fail")
+            logger.log("check", "fail")
             sys.exit(112)
     
     total_duration = sum(durations)
@@ -57,36 +57,35 @@ def measure_runtime():
     standard_deviation = math.sqrt(variance / (TIMED_RUNS - 1))
     standard_error = standard_deviation / math.sqrt(TIMED_RUNS)
 
-    log("check", "pass")
-    log("duration.mean", average_duration)
-    log("duration.std", standard_deviation)
-    log("duration.err", standard_error)
-    log("duration.best", best)
-    log("duration.worst", worst)
+    logger.log("check", "pass")
+    logger.log("duration.mean", average_duration)
+    logger.log("duration.std", standard_deviation)
+    logger.log("duration.err", standard_error)
+    logger.log("duration.best", best)
+    logger.log("duration.worst", worst)
 
     print(f"average kernel runtime: {average_duration / 1e6} ± {standard_error / 1e6} µs")
 
 def main():
     fd = os.getenv("POPCORN_FD")
-    if fd:
-        setup_logger(fd)
-    else:
+    if not fd:
         return 111
 
-    seed = os.getenv("POPCORN_SEED")
-    seed = int(seed) if seed else 42
+    with PopcornOutput(int(fd)) as logger:
+        seed = os.getenv("POPCORN_SEED")
+        seed = int(seed) if seed else 42
 
-    set_seed(seed)
-    data = generate_input()
-    reference_output = ref_kernel(data)
-    submission_output = custom_kernel(data)
+        set_seed(seed)
+        data = generate_input()
+        reference_output = ref_kernel(data)
+        submission_output = custom_kernel(data)
 
-    if not check_implementation(submission_output, reference_output):
-        log("check", "fail")
-        return 112
+        if not check_implementation(submission_output, reference_output):
+            logger.log("check", "fail")
+            return 112
 
-    measure_runtime()
-    return 0;
+        measure_runtime(logger)
+        return 0
 
 
 if __name__ == "__main__":
