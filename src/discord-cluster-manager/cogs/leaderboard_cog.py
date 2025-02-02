@@ -1,5 +1,7 @@
 import asyncio
 import os
+import tempfile
+import zipfile
 from datetime import datetime, timedelta, timezone
 from enum import Enum
 from io import StringIO
@@ -651,14 +653,14 @@ class LeaderboardCog(commands.Cog):
     @discord.app_commands.describe(
         leaderboard_name="Name of the leaderboard",
         deadline="Competition deadline in the form: 'Y-m-d'",
-        reference_code="Reference implementation of kernel. Also includes eval code.",
+        task_zip="Zipfile containing the task",
     )
     async def leaderboard_create(  # noqa: C901
         self,
         interaction: discord.Interaction,
         leaderboard_name: str,
         deadline: str,
-        reference_code: discord.Attachment,
+        task_zip: discord.Attachment,
     ):
         is_admin = await self.admin_check(interaction)
         is_creator = await self.creator_check(interaction)
@@ -704,8 +706,20 @@ class LeaderboardCog(commands.Cog):
 
         try:
             # Read the template file
-            task_str = (await reference_code.read()).decode("utf-8")
-            task = LeaderboardTask.from_str(task_str)
+            with tempfile.TemporaryDirectory() as tmpdir:
+                with tempfile.NamedTemporaryFile("w+b") as temp:
+                    temp.write(await task_zip.read())
+                    temp.flush()
+                    with zipfile.ZipFile(temp, 'r') as zip_ref:
+                        zip_ref.extractall(tmpdir)
+
+                contents = list(Path(tmpdir).iterdir())
+                # support both a zipped directory, and files
+                # directly in the zip
+                if len(contents) == 1:
+                    task = make_task(contents[0])
+                else:
+                    task = make_task(tmpdir)
 
             success = await self.create_leaderboard_in_db(
                 interaction, leaderboard_name, date_value, task
@@ -725,7 +739,6 @@ class LeaderboardCog(commands.Cog):
                     content=(
                         f"# New Leaderboard: {leaderboard_name}\n\n"
                         f"**Deadline**: {date_value.strftime('%Y-%m-%d %H:%M')}\n\n"
-                        f"**Reference Code**: {reference_code}\n\n"
                         "Submit your entries using `/submit github` or `/submit modal` in the submissions channel.\n\n"  # noqa: E501
                         f"Good luck to all participants! 🚀 <@&{self.bot.leaderboard_participant_role_id}>"  # noqa: E501
                     ),
@@ -735,7 +748,7 @@ class LeaderboardCog(commands.Cog):
                 await send_discord_message(
                     interaction,
                     f"Leaderboard '{leaderboard_name}'.\n"
-                    + f"Reference code: {reference_code}. Submission deadline: {date_value}"
+                    + f"Submission deadline: {date_value}"
                     + f"\nForum thread: {thread.thread.mention}",
                 )
                 return
@@ -750,6 +763,27 @@ class LeaderboardCog(commands.Cog):
             await send_discord_message(
                 interaction,
                 "Error creating forum thread. Leaderboard was not created.",
+                ephemeral=True,
+            )
+        except FileNotFoundError as e:
+            file = Path(e.filename).name
+            if file == "task.yml":
+                await send_discord_message(
+                    interaction,
+                    f"Error in leaderboard creation. Missing `task.yml`.",
+                    ephemeral=True,
+                )
+            else:
+                await send_discord_message(
+                    interaction,
+                    f"Error in leaderboard creation. Could not find `{file}`.",
+                    ephemeral=True,
+                )
+        except zipfile.BadZipFile:
+            # Handle any other errors
+            await send_discord_message(
+                interaction,
+                "Error in leaderboard creation. Is the uploaded file a valid zip archive?",
                 ephemeral=True,
             )
         except Exception as e:
