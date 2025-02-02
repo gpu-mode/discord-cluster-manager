@@ -167,9 +167,7 @@ async def _generate_test_report(thread: discord.Thread, run: RunResult):
     return
 
 
-
 async def generate_report(thread: discord.Thread, result: FullResult, mode: SubmissionMode):  # noqa: C901
-    message = ""
     if not result.success:
         message = "# Failure\n"
         message += result.error
@@ -182,19 +180,19 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
     # minimal error messages for private run
     if mode == SubmissionMode.PRIVATE:
         if comp is not None and not comp.success:
-            await thread.send("Compilation failed")
+            await thread.send("❌ Compilation failed")
             return
 
         if not run.success:
-            await thread.send("Running failed")
+            await thread.send("❌ Running failed")
             return
 
         if not run.passed:
-            await thread.send("Testing failed")
+            await thread.send("❌ Testing failed")
             return
 
         else:
-            await thread.send("Secret run successful")
+            await thread.send("✅ Secret run successful")
             return
 
     message = ""
@@ -210,6 +208,8 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
         if not run.passed:
             await _generate_test_report(thread, run)
             return
+        else:
+            message += "✅ Testing passed"
 
     if mode in [SubmissionMode.BENCHMARK, SubmissionMode.BENCHMARK]:
         bench_log = []

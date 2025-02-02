@@ -5,7 +5,8 @@ import subprocess
 import tempfile
 import time
 from pathlib import Path
-from typing import Optional
+from types import NoneType
+from typing import Optional, Union
 
 from consts import CUDA_FLAGS, ExitCode
 
@@ -51,7 +52,11 @@ def _make_cmd(args: list[str]):
     return " ".join(map(shlex.quote, args))
 
 
-def _limit_length(text: str, max_len: int = 16384):
+def _limit_length(text: Union[NoneType, str, bytes], max_len: int = 16384):
+    if text is None:
+        return ''
+    if isinstance(text, bytes):
+        text = text.decode("utf-8")
     lines = text.split("\n")
     size = 0
     for i, line in enumerate(lines):
@@ -214,7 +219,7 @@ def run_program(args: list[str], seed: int, timeout: int = 30) -> RunResult:
             stderr=_limit_length(e.stderr),
             exit_code=ExitCode.TIMEOUT_EXPIRED,
             duration=timeout,
-            result=None,
+            result={},
         )
     execution_end_time = time.perf_counter()
 
