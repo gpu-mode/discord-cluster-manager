@@ -628,8 +628,9 @@ class LeaderboardCog(commands.Cog):
             return
 
         old_cwd = Path.cwd()
+        directory = Path("examples") / directory
         try:
-            assert Path(directory).resolve().is_relative_to(Path.cwd())
+            assert directory.resolve().is_relative_to(Path.cwd())
             os.chdir(directory)
             task = make_task("task.yml")
         finally:
