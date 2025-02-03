@@ -2,6 +2,7 @@ import dataclasses
 import os
 import shlex
 import subprocess
+import tempfile
 import time
 from pathlib import Path
 from typing import Optional
@@ -186,6 +187,7 @@ def compile_cuda_script(  # # noqa: C901
 
 
 def run_program(args: list[str], seed: int) -> RunResult:
+    print("[Running]")
     # set up a pipe so the tester can communicate its verdict with us
     env = os.environ.copy()
     pipe_read, pipe_write = os.pipe()
@@ -200,6 +202,7 @@ def run_program(args: list[str], seed: int) -> RunResult:
         check=False,
         env=env,
         pass_fds=[pipe_write],
+        timeout=10
     )
     execution_end_time = time.perf_counter()
 
@@ -237,6 +240,9 @@ def run_cuda_script(  # # noqa: C901
     include_dirs: Optional[list[str]] = None,
     libraries: Optional[list[str]] = None,
     flags: Optional[list[str]] = None,
+    mode: str = None,
+    tests: str = None,
+    benchmarks: str = None,
     seed: int = 42,
 ) -> tuple[CompileResult, RunResult]:
     """
@@ -292,7 +298,32 @@ def run_cuda_script(  # # noqa: C901
             if os.path.exists(f):
                 os.remove(f)
 
-    run_result = run_program(["./eval.out"], seed=seed)
+    if mode == "test":
+        with tempfile.NamedTemporaryFile("w") as tests_file:
+            tests_file.write(tests)
+            tests_file.flush()
+            run_result = run_program(["./eval.out", mode, tests_file.name], seed=seed)
+    elif mode in ["benchmark", "profile", "leaderboard"]:
+        with tempfile.NamedTemporaryFile("w") as bench_file:
+            bench_file.write(benchmarks)
+            bench_file.flush()
+            run_result = run_program(["./eval.out", mode, bench_file.name], seed=seed)
+    elif mode == "private":
+        # first, run the tests
+        with tempfile.NamedTemporaryFile("w") as tests_file:
+            tests_file.write(tests)
+            tests_file.flush()
+            run_result = run_program(["./eval.out", "test", tests_file.name], seed=seed)
+
+        # if they pass, run the leaderboard validation
+        if run_result.passed:
+            with tempfile.NamedTemporaryFile("w") as bench_file:
+                bench_file.write(benchmarks)
+                bench_file.flush()
+                run_result = run_program(["./eval.out", "leaderboard", bench_file.name], seed=seed)
+
+    else:
+        run_result = run_program(["./eval.out", mode], seed=seed)
     return compile_result, run_result
 
 
@@ -325,6 +356,16 @@ def run_pytorch_script(  # noqa: C901
                 os.remove(f)
 
 
+def build_test_string(tests: list[dict]):
+    as_str = ""
+    for test in tests:
+        kvs = []
+        for k, v in test.items():
+            kvs.append(f"{k}: {v}")
+        as_str += "; ".join(kvs) + "\n"
+    return as_str
+
+
 def run_config(config: dict):
     if config["lang"] == "py":
         run_result = run_pytorch_script(sources=config["sources"], main=config["main"])
@@ -338,6 +379,9 @@ def run_config(config: dict):
             include_dirs=config.get("include_dirs", []),
             libraries=config.get("libraries", []),
             flags=CUDA_FLAGS,
+            tests=build_test_string(config.get("tests", [])),
+            benchmarks=build_test_string(config.get("benchmarks", [])),
+            mode=config.get("mode", "test"),
         )
         return FullResult(success=True, error="", compile=comp, run=run)
     else:

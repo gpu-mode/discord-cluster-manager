@@ -4,6 +4,8 @@ from typing import Optional, Tuple, Type
 import discord
 from discord import app_commands
 from discord.ext import commands
+
+from consts import SubmissionMode
 from report import generate_report
 from run_eval import FullResult
 from task import LeaderboardTask
@@ -90,15 +92,13 @@ class SubmitCog(commands.Cog):
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
         task: LeaderboardTask,
+        mode: SubmissionMode,
     ) -> Tuple[Optional[discord.Thread], Optional[FullResult]]:
         """
         Function invoked by `leaderboard_cog` to handle a leaderboard run.
         """
         thread, result = await self._handle_submission(
-            interaction,
-            gpu_type,
-            script=script,
-            task=task,
+            interaction, gpu_type, script=script, task=task, mode=mode
         )
 
         return thread, result
@@ -113,10 +113,7 @@ class SubmitCog(commands.Cog):
         Function invoked by the `run` command to run a single script.
         """
         await self._handle_submission(
-            interaction,
-            gpu_type,
-            script=script,
-            task=None,
+            interaction, gpu_type, script=script, task=None, mode=SubmissionMode.SCRIPT
         )
 
     async def _handle_submission(
@@ -125,6 +122,7 @@ class SubmitCog(commands.Cog):
         gpu_type: app_commands.Choice[str],
         script: discord.Attachment,
         task: Optional[LeaderboardTask],
+        mode: SubmissionMode,
     ) -> Tuple[Optional[discord.Thread], Optional[FullResult]]:
         """
         Generic function to handle code submissions.
@@ -146,7 +144,7 @@ class SubmitCog(commands.Cog):
         # TODO figure out the correct way to handle messaging here
         thread = await self.bot.create_thread(interaction, gpu_type.name, f"{self.name} Job")
         await thread.send(
-            f"Starting {self.name} job for " f"`{script.filename}` with {gpu_type.name}..."
+            f"Starting {mode.value.capitalize()} job on {self.name} for " f"`{script.filename}` with {gpu_type.name}..."
         )
 
         status = await ProgressReporter.make_reporter(thread, f"Running on {self.name}...")
@@ -155,13 +153,14 @@ class SubmitCog(commands.Cog):
             task=task,
             submission_content=script_content,
             arch=self._get_arch(gpu_type),
+            mode=mode
         )
 
         logger.info("submitting task %s to runner %s", config, self.name)
 
         result = await self._run_submission(config, gpu_type, status)
         await status.update_header(f"Running on {self.name}... ✅ success")
-        await generate_report(thread, result, has_tests=task is not None)
+        await generate_report(thread, result, mode=mode)
 
         return thread, result
 

@@ -13,7 +13,7 @@ from consts import (
     GPU_SELECTION,
     AllGPU,
     GitHubGPU,
-    ModalGPU,
+    ModalGPU, SubmissionMode,
 )
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -55,7 +55,8 @@ class LeaderboardSubmitCog(app_commands.Group):
         task: LeaderboardTask,
         submission_content,
         gpu: AllGPU,
-        runner_name: str = "GitHub",
+        runner_name: str,
+        mode: SubmissionMode,
     ):
         discord_thread, result = await command(
             interaction,
@@ -65,11 +66,21 @@ class LeaderboardSubmitCog(app_commands.Group):
                 value=gpu.value,
             ),
             task=task,
+            mode=mode,
         )
 
         # no point going further if this already failed
         if discord_thread is None:
             return -1
+
+        if mode == SubmissionMode.LEADERBOARD:
+            pass
+            # public leaderboard run
+        elif mode == SubmissionMode.PRIVATE:
+            pass
+            # private leaderboard run
+        else:
+            return 0
 
         try:
             if result.success:
@@ -186,6 +197,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         command: Callable,
         GPUsEnum: Type[Enum],
         runner_name: str,
+        mode: SubmissionMode,
     ) -> int:
         """
         Called as the main body of a submission to route to the correct runner.
@@ -233,9 +245,27 @@ class LeaderboardSubmitCog(app_commands.Group):
                 submission_content,
                 AllGPU[gpu],
                 runner_name,
+                mode,
             )
             for gpu in selected_gpus
         ]
+
+        # also schedule secret run
+        if mode == SubmissionMode.LEADERBOARD:
+            tasks += [
+                self.async_submit_cog_job(
+                    interaction,
+                    leaderboard_name,
+                    script,
+                    command,
+                    task,
+                    submission_content,
+                    AllGPU[gpu],
+                    runner_name,
+                    SubmissionMode.PRIVATE,
+                )
+                for gpu in selected_gpus
+            ]
 
         await asyncio.gather(*tasks)
         return 0
@@ -255,6 +285,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         interaction: discord.Interaction,
         leaderboard_name: str,
         script: discord.Attachment,
+        mode: SubmissionMode,
     ):
         # Call Modal runner
         runner_cog = self.bot.get_cog(f"{runner_name}Cog")
@@ -273,6 +304,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                 runner_command,
                 GPU_SELECTION[runner_name],
                 runner_name,
+                mode,
             )
         except Exception as e:
             logger.error("Error handling leaderboard submission", exc_info=e)
@@ -297,7 +329,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         leaderboard_name: str,
         script: discord.Attachment,
     ):
-        return await self.submit("Modal", interaction, leaderboard_name, script)
+        return await self.submit("Modal", interaction, leaderboard_name, script, mode=SubmissionMode.LEADERBOARD)
 
     @app_commands.command(name="github", description="Submit leaderboard data for GitHub")
     @app_commands.describe(
@@ -311,7 +343,43 @@ class LeaderboardSubmitCog(app_commands.Group):
         leaderboard_name: str,
         script: discord.Attachment,
     ):
-        return await self.submit("GitHub", interaction, leaderboard_name, script)
+        return await self.submit(
+            "GitHub", interaction, leaderboard_name, script, mode=SubmissionMode.LEADERBOARD
+        )
+
+    @app_commands.command(name="test", description="Start a testing/debugging run")
+    @app_commands.describe(
+        leaderboard_name="Name of the competition / kernel to optimize",
+        runner="Name of the runner to run on",
+        script="The Python / CUDA script file to run",
+    )
+    @app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
+    async def submit_test(
+        self,
+        interaction: discord.Interaction,
+        runner: str,
+        leaderboard_name: str,
+        script: discord.Attachment,
+    ):
+        runner = {"github": "GitHub", "modal": "Modal"}[runner.lower()]
+        return await self.submit(runner, interaction, leaderboard_name, script, mode=SubmissionMode.TEST)
+
+    @app_commands.command(name="benchmark", description="Start a benchmarking run")
+    @app_commands.describe(
+        leaderboard_name="Name of the competition / kernel to optimize",
+        runner="Name of the runner to run on",
+        script="The Python / CUDA script file to run",
+    )
+    @app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
+    async def submit_bench(
+        self,
+        interaction: discord.Interaction,
+        runner: str,
+        leaderboard_name: str,
+        script: discord.Attachment,
+    ):
+        runner = {"github": "GitHub", "modal": "Modal"}[runner.lower()]
+        return await self.submit(runner, interaction, leaderboard_name, script, mode=SubmissionMode.BENCHMARK)
 
 
 class LeaderboardCog(commands.Cog):
