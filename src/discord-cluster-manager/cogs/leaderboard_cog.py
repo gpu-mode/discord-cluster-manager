@@ -676,14 +676,12 @@ class LeaderboardCog(commands.Cog):
         await send_discord_message(interaction, message, ephemeral=True, files=files)
 
     @discord.app_commands.describe(
-        leaderboard_name="Name of the leaderboard",
-        directory="Directory of the kernel definition",
+        directory="Directory of the kernel definition. Also used as the leaderboard's name",
     )
     @app_commands.autocomplete(directory=leaderboard_dir_autocomplete)
     async def leaderboard_create_local(
         self,
         interaction: discord.Interaction,
-        leaderboard_name: str,
         directory: str,
     ):
         is_admin = await self.admin_check(interaction)
@@ -695,14 +693,11 @@ class LeaderboardCog(commands.Cog):
             )
             return
 
-        old_cwd = Path.cwd()
         directory = Path("examples") / directory
-        try:
-            assert directory.resolve().is_relative_to(Path.cwd())
-            os.chdir(directory)
-            task = make_task("task.yml")
-        finally:
-            os.chdir(old_cwd)
+        assert directory.resolve().is_relative_to(Path.cwd())
+        task = make_task(directory)
+
+        leaderboard_name = directory.name
 
         # create-local overwrites existing leaderboard
         with self.bot.leaderboard_db as db:
