@@ -227,6 +227,9 @@ def build_task_config(
                 "arch": arch,
                 "main": task.config.main,
                 "sources": all_files,
+                "benchmarks": task.benchmarks,
+                "tests": task.tests,
+                "mode": mode.value,
             }
         else:
             sources = {}

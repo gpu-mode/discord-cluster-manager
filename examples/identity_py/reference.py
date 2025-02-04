@@ -1,28 +1,27 @@
 import torch
-import sys
-from task import input_t, output_t, N_SIZES, Ns
+from task import input_t, output_t
 from utils import verbose_allclose
 
-def generate_input() -> input_t:
-    data = [torch.empty(N) for N in Ns]
 
-    for i in range(N_SIZES):
-        data[i].uniform_(0, 1)
+def generate_input(size: int, seed: int) -> input_t:
+    gen = torch.Generator()
+    gen.manual_seed(seed)
+    data = torch.empty(size)
+    data.uniform_(0, 1, generator=gen)
     return data
+
 
 def ref_kernel(data: input_t) -> output_t:
     return data
 
 
-def check_implementation(submission_output, reference_output) -> bool:
-    for i in range(N_SIZES):
-        reasons = verbose_allclose(submission_output[i], reference_output[i])
-        if len(reasons) > 0:
-            print("mismatch found! custom implementation doesnt match reference.", file=sys.stderr)
-            for reason in reasons:
-                print(reason, file=sys.stderr)
-            return False
-    
-    return True
+def check_implementation(data, output) -> str:
+    expected = ref_kernel(data)
+    reasons = verbose_allclose(output, expected)
+    if len(reasons) > 0:
+        # TODO better processing of reasons
+        return "mismatch found! custom implementation doesn't match reference.: " + reasons[0]
+
+    return ''
 
 

@@ -56,7 +56,9 @@ class GitHubCog(SubmitCog):
         if "run-result" not in artifacts:
             logger.error("Could not find `run-result` among artifacts: %s", artifacts.keys())
             await status.push("Downloading artifacts...  failed")
-            return FullResult(success=False, error="Could not download artifacts", compile=None, run=None)
+            return FullResult(
+                success=False, error="Could not download artifacts", compile=None, runs={}
+            )
 
         logs = artifacts["run-result"]["result.json"].decode("utf-8")
 
@@ -67,8 +69,8 @@ class GitHubCog(SubmitCog):
             comp = CompileResult(**data["compile"])
         else:
             comp = None
-        run = RunResult(**data["run"])
-        return FullResult(success=True, error="", compile=comp, run=run)
+        run = {k: RunResult(**v) for k, v in data['runs']}
+        return FullResult(success=True, error="", compile=comp, runs=run)
 
     async def wait_callback(self, run: GitHubRun, status: ProgressReporter):
         await status.update(

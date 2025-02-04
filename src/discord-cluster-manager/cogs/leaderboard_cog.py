@@ -13,7 +13,8 @@ from consts import (
     GPU_SELECTION,
     AllGPU,
     GitHubGPU,
-    ModalGPU, SubmissionMode,
+    ModalGPU,
+    SubmissionMode,
 )
 from discord import app_commands
 from discord.ext import commands, tasks
@@ -329,7 +330,9 @@ class LeaderboardSubmitCog(app_commands.Group):
         leaderboard_name: str,
         script: discord.Attachment,
     ):
-        return await self.submit("Modal", interaction, leaderboard_name, script, mode=SubmissionMode.LEADERBOARD)
+        return await self.submit(
+            "Modal", interaction, leaderboard_name, script, mode=SubmissionMode.LEADERBOARD
+        )
 
     @app_commands.command(name="github", description="Submit leaderboard data for GitHub")
     @app_commands.describe(
@@ -362,7 +365,9 @@ class LeaderboardSubmitCog(app_commands.Group):
         script: discord.Attachment,
     ):
         runner = {"github": "GitHub", "modal": "Modal"}[runner.lower()]
-        return await self.submit(runner, interaction, leaderboard_name, script, mode=SubmissionMode.TEST)
+        return await self.submit(
+            runner, interaction, leaderboard_name, script, mode=SubmissionMode.TEST
+        )
 
     @app_commands.command(name="benchmark", description="Start a benchmarking run")
     @app_commands.describe(
@@ -379,7 +384,9 @@ class LeaderboardSubmitCog(app_commands.Group):
         script: discord.Attachment,
     ):
         runner = {"github": "GitHub", "modal": "Modal"}[runner.lower()]
-        return await self.submit(runner, interaction, leaderboard_name, script, mode=SubmissionMode.BENCHMARK)
+        return await self.submit(
+            runner, interaction, leaderboard_name, script, mode=SubmissionMode.BENCHMARK
+        )
 
 
 class LeaderboardCog(commands.Cog):

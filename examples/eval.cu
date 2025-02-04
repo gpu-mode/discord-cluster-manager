@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <regex>
 #include <cassert>
+#include <variant>
 #include <tuple>
 #include "utils.h"
 #include "reference.cuh"
@@ -238,25 +239,52 @@ BenchmarkStats calculate_stats(const std::vector<std::int64_t>& durations) {
     return {runs, average_duration, standard_deviation, standard_error, (double)best, (double)worst};
 }
 
-BenchmarkStats benchmark(const TestCase& test) {
+using BenchmarkResults = std::variant<BenchmarkStats, TestReporter>;
+
+BenchmarkResults benchmark(const TestCase& test_case, bool test_correctness, int max_repeats, float max_time_ns) {
     std::vector<std::int64_t> durations;
-    durations.reserve(100);
+    durations.reserve(max_repeats);
 
     // generate input data once
-    auto data = call_generate_input(test, &generate_input);
+    auto data = call_generate_input(test_case, &generate_input);
+    auto copy = data;
 
-    // now, do multiple timing runs without further correctness testing
-    // there is an upper bound of 100 runs, and a lower bound of 3 runs;
-    // otherwise, we repeat until we either measure at least 10 full seconds,
+    // first, one obligatory correctness check
+    {
+        TestReporter reporter;
+        auto submission_output = custom_kernel(std::move(copy));
+        check_implementation(reporter, data, submission_output);
+        if(!reporter.has_passed()) {
+            return reporter;
+        }
+    }
+
+    // now, do multiple timing runs
+    // there is an upper bound of `max_repeats` runs, and a lower bound of 3 runs;
+    // otherwise, we repeat until we either measure at least max_time_ns nanoseconds,
     // or the relative error of the mean is below 1%.
 
-    for(int i = 0; i < 100; ++i) {
+    for(int i = 0; i < max_repeats; ++i) {
+        // stricter checking for leaderboard submissions
+        if(test_correctness) {
+            data = call_generate_input(test_case, &generate_input);
+            copy = data;
+        }
         auto start = std::chrono::high_resolution_clock::now();
         // move data into custom_kernel, so that if custom_kernel takes large std::vectors or similar by value,
         // we're not measuring the copy overhead.
         auto submission_output = custom_kernel(std::move(data));
         CUDA_CHECK(cudaDeviceSynchronize());
         auto end = std::chrono::high_resolution_clock::now();
+
+        if(test_correctness) {
+            TestReporter reporter;
+            check_implementation(reporter, copy, submission_output);
+
+            if(!reporter.has_passed()) {
+                return reporter;
+            }
+        }
 
         durations.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
 
@@ -264,57 +292,79 @@ BenchmarkStats benchmark(const TestCase& test) {
             auto stats = calculate_stats(durations);
             // if we have enough data for an error < 1%
             // or if the total running time exceeds 10 seconds
-            if((stats.err / stats.mean < 0.01) || (stats.mean * stats.runs > 10e9)) {
+            if((stats.err / stats.mean < 0.01) || (stats.mean * stats.runs > max_time_ns)) {
                 break;
             }
         }
     }
 
-    return calculate_stats(durations);
-}
-
-
-BenchmarkStats measure_for_leaderboard(PopcornOutput& logger, TestCase benchmark, int seed) {
-    std::vector<std::int64_t> durations;
-    durations.reserve(200);
-    for (int i = 0; i < 200; ++i) {
-        // TODO manipulate test case so that we use a different seed every time
-        auto data = call_generate_input(benchmark, &generate_input);
-        auto copy = data;
-        auto start = std::chrono::high_resolution_clock::now();
-        // move data into custom_kernel, so that if custom_kernel takes large std::vectors or similar by value,
-        // we're not measuring the copy overhead.
-        auto submission_output = custom_kernel(std::move(data));
-        CUDA_CHECK(cudaDeviceSynchronize());
-        auto end = std::chrono::high_resolution_clock::now();
-
-        TestReporter reporter;
-        check_implementation(reporter, copy, submission_output);
-
-        durations.push_back(std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count());
-
-        if(!reporter.has_passed()) {
-            logger.log("check", "fail");
-            logger.log("test.0.status", "fail");
-            logger.log("test.0.error", reporter.message().c_str());
-            exit(ExitCodes::EXIT_TEST_FAIL);
-        }
-
-        if (i > 1) {
-            auto stats = calculate_stats(durations);
-            // if we have enough data for an error < 1%
-            // or if the total running time exceeds 30 seconds
-            if ((stats.err / stats.mean < 0.01) || (stats.mean * stats.runs > 30e9)) {
-                break;
-            }
-        }
-    }
-
-    logger.log("check", "pass");
     return calculate_stats(durations);
 }
 
 } // namespace
+
+
+int run_testing(PopcornOutput& logger, const std::vector<TestCase>& tests) {
+    bool pass = true;
+    logger.log("test-count", tests.size());
+    for (int i = 0; i < tests.size(); ++i) {
+        auto& tc = tests.at(i);
+        logger.log("test." + std::to_string(i) + ".spec", tc.spec.c_str());
+        auto data = call_generate_input(tc, &generate_input);
+        auto copy = data;
+        auto submission_output = custom_kernel(std::move(data));
+        CUDA_CHECK(cudaDeviceSynchronize());
+
+        TestReporter reporter;
+        check_implementation(reporter, copy, submission_output);
+
+        // log test status
+        if (!reporter.has_passed()) {
+            logger.log("test." + std::to_string(i) + ".status", "fail");
+            logger.log("test." + std::to_string(i) + ".error", reporter.message().c_str());
+            pass = false;
+        } else {
+            logger.log("test." + std::to_string(i) + ".status", "pass");
+        }
+    }
+
+    if(pass) {
+        logger.log("check", "pass");
+        return EXIT_SUCCESS;
+    } else {
+        logger.log("check", "fail");
+        return ExitCodes::EXIT_TEST_FAIL;
+    }
+};
+
+int run_benchmarking(PopcornOutput& logger, const std::vector<TestCase>& tests) {
+    warm_up(tests.front());
+    logger.log("benchmark-count", tests.size());
+    for (int i = 0; i < tests.size(); ++i) {
+        const TestCase& tc = tests.at(i);
+                logger.log("benchmark." + std::to_string(i) + ".spec", tc.spec.c_str());
+        auto data = call_generate_input(tc, &generate_input);
+        auto copy = data;
+        auto submission_output = custom_kernel(std::move(data));
+
+        auto result = benchmark(tc, false, 100, 10e9);
+        if(std::holds_alternative<BenchmarkStats>(result)) {
+            auto &stats = std::get<BenchmarkStats>(result);
+            logger.log("benchmark." + std::to_string(i) + ".status", "pass");
+            logger.log("benchmark." + std::to_string(i) + ".runs", stats.runs);
+            logger.log("benchmark." + std::to_string(i) + ".mean", stats.mean);
+            logger.log("benchmark." + std::to_string(i) + ".std", stats.std);
+            logger.log("benchmark." + std::to_string(i) + ".err", stats.err);
+            logger.log("benchmark." + std::to_string(i) + ".best", stats.best);
+            logger.log("benchmark." + std::to_string(i) + ".worst", stats.worst);
+        } else {
+            auto& rep = std::get<TestReporter>(result);
+            logger.log("benchmark." + std::to_string(i) + ".status", "fail");
+            logger.log("benchmark." + std::to_string(i) + ".error", rep.message().c_str());
+        }
+    }
+    return EXIT_SUCCESS;
+}
 
 int main(int argc, const char* argv[]) {
     // setup
@@ -329,69 +379,34 @@ int main(int argc, const char* argv[]) {
 
     std::vector<TestCase> tests = get_test_cases(argv[2]);
 
-    if(mode == "test" || mode == "benchmark") {
-        bool pass = true;
-        for (int i = 0; i < tests.size(); ++i) {
-            auto& tc = tests.at(i);
-            logger.log("test." + std::to_string(i) + ".spec", tc.spec.c_str());
-            auto data = call_generate_input(tc, &generate_input);
-            auto copy = data;
-            auto submission_output = custom_kernel(std::move(data));
-
-            TestReporter reporter;
-            check_implementation(reporter, copy, submission_output);
-
-            // log test status
-            if (!reporter.has_passed()) {
-                logger.log("test." + std::to_string(i) + ".status", "fail");
-                logger.log("test." + std::to_string(i) + ".error", reporter.message().c_str());
-                pass = false;
-                // benchmark: stop at first failure; test: continue
-                if(mode == "benchmark") {
-                    break;
-                }
-            } else {
-                logger.log("test." + std::to_string(i) + ".status", "pass");
-            }
-        }
-
-        if(pass) {
-            logger.log("check", "pass");
-        } else {
-            logger.log("check", "fail");
-            return ExitCodes::EXIT_TEST_FAIL;
-        }
-
-        if(mode == "test")
-            return EXIT_SUCCESS;
+    if(mode == "test") {
+        return run_testing(logger, tests);
     }
 
     if (mode == "benchmark") {
-        warm_up(tests.front());
-        for (int i = 0; i < tests.size(); ++i) {
-            const TestCase& tc = tests.at(i);
-            auto result = benchmark(tc);
-            logger.log("duration." + std::to_string(i) + ".spec", tc.spec.c_str());
-            logger.log("duration." + std::to_string(i) + ".runs", result.runs);
-            logger.log("duration." + std::to_string(i) + ".mean", result.mean);
-            logger.log("duration." + std::to_string(i) + ".std", result.std);
-            logger.log("duration." + std::to_string(i) + ".err", result.err);
-            logger.log("duration." + std::to_string(i) + ".best", result.best);
-            logger.log("duration." + std::to_string(i) + ".worst", result.worst);
-        }
-        return EXIT_SUCCESS;
+      return run_benchmarking(logger, tests);
     }
 
     if (mode == "leaderboard" ) {
         warm_up(tests.front());
-        auto result = measure_for_leaderboard(logger, tests.back(), seed);
-        logger.log("duration.spec", tests.back().spec.c_str());
-        logger.log("duration.runs", result.runs);
-        logger.log("duration.mean", result.mean);
-        logger.log("duration.std", result.std);
-        logger.log("duration.err", result.err);
-        logger.log("duration.best", result.best);
-        logger.log("duration.worst", result.worst);
+        auto result = benchmark(tests.back(), true, 100, 30e9);
+        if(std::holds_alternative<BenchmarkStats>(result)) {
+            logger.log("benchmark-count", 1);
+            auto& stats = std::get<BenchmarkStats>(result);
+            logger.log("benchmark.0.spec", tests.back().spec.c_str());
+            logger.log("benchmark.0.runs", stats.runs);
+            logger.log("benchmark.0.mean", stats.mean);
+            logger.log("benchmark.0.std", stats.std);
+            logger.log("benchmark.0.err", stats.err);
+            logger.log("benchmark.0.best", stats.best);
+            logger.log("benchmark.0.worst", stats.worst);
+            logger.log("check", "pass");
+        } else {
+            logger.log("test-count", 1);
+            auto& rep = std::get<TestReporter>(result);
+            logger.log("test.0.status", "fail");
+            logger.log("test.0.error", rep.message().c_str());
+        }
     } else {
         std::cerr << "Unknown evaluation mode '" << mode << "'" << std::endl;
         return ExitCodes::USAGE_ERROR;

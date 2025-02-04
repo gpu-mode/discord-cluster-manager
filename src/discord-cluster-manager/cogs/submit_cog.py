@@ -2,10 +2,9 @@ from enum import Enum
 from typing import Optional, Tuple, Type
 
 import discord
+from consts import SubmissionMode
 from discord import app_commands
 from discord.ext import commands
-
-from consts import SubmissionMode
 from report import generate_report
 from run_eval import FullResult
 from task import LeaderboardTask
@@ -144,16 +143,14 @@ class SubmitCog(commands.Cog):
         # TODO figure out the correct way to handle messaging here
         thread = await self.bot.create_thread(interaction, gpu_type.name, f"{self.name} Job")
         await thread.send(
-            f"Starting {mode.value.capitalize()} job on {self.name} for " f"`{script.filename}` with {gpu_type.name}..."
+            f"Starting {mode.value.capitalize()} job on {self.name} for "
+            f"`{script.filename}` with {gpu_type.name}..."
         )
 
         status = await ProgressReporter.make_reporter(thread, f"Running on {self.name}...")
 
         config = build_task_config(
-            task=task,
-            submission_content=script_content,
-            arch=self._get_arch(gpu_type),
-            mode=mode
+            task=task, submission_content=script_content, arch=self._get_arch(gpu_type), mode=mode
         )
 
         logger.info("submitting task %s to runner %s", config, self.name)
