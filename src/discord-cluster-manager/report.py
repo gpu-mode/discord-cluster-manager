@@ -170,6 +170,8 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
     comp = result.compile
     runs = result.runs
 
+    print(runs)
+
     # minimal error messages for private run
     if mode == SubmissionMode.PRIVATE:
         if comp is not None and not comp.success:
@@ -257,8 +259,7 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
 
         bench_log = []
         for i in range(num_bench):
-            if not log_one(f"benchmark.{i}"):
-                break
+            log_one(f"benchmark.{i}")
             bench_log.append("")
 
         if len(bench_log) > 0:

@@ -339,6 +339,7 @@ int run_testing(PopcornOutput& logger, const std::vector<TestCase>& tests) {
 
 int run_benchmarking(PopcornOutput& logger, const std::vector<TestCase>& tests) {
     warm_up(tests.front());
+    bool pass = true;
     logger.log("benchmark-count", tests.size());
     for (int i = 0; i < tests.size(); ++i) {
         const TestCase& tc = tests.at(i);
@@ -361,9 +362,17 @@ int run_benchmarking(PopcornOutput& logger, const std::vector<TestCase>& tests) 
             auto& rep = std::get<TestReporter>(result);
             logger.log("benchmark." + std::to_string(i) + ".status", "fail");
             logger.log("benchmark." + std::to_string(i) + ".error", rep.message().c_str());
+            pass = false;
         }
     }
-    return EXIT_SUCCESS;
+
+    if(pass) {
+        logger.log("check", "pass");
+        return EXIT_SUCCESS;
+    } else {
+        logger.log("check", "fail");
+        return ExitCodes::EXIT_TEST_FAIL;
+    }
 }
 
 int main(int argc, const char* argv[]) {
