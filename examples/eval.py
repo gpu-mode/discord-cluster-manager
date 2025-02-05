@@ -70,24 +70,9 @@ def get_test_cases(file_name: str) -> list[TestCase]:
                 pass
 
             case[key] = val
-        tests.append(case)
+        tests.append(TestCase(spec=line, args=case))
 
     return tests
-
-
-def run_test(idx: int, test: TestCase, logger: PopcornOutput):
-    logger.log(f"test.{idx}.spec", test.spec)
-
-    data = generate_input(**test.args)
-    submission_output = custom_kernel(data)
-    error = check_implementation(data, submission_output)
-    if error:
-        logger.log(f"test.{idx}.status", "fail")
-        logger.log(f"test.{idx}.error", error)
-        return True
-    else:
-        logger.log(f"test.{idx}.status", "pass")
-        return False
 
 
 def warm_up(test: TestCase):
@@ -123,37 +108,93 @@ def calculate_stats(durations: list[int]):
                  worst=float(worst))
 
 
-def benchmark(idx: int, test: TestCase, logger: PopcornOutput):
+def run_testing(logger: PopcornOutput, tests: list[TestCase]):
+    passed = True
+    logger.log("test-count", len(tests))
+    for idx, test in enumerate(tests):
+        logger.log(f"test.{idx}.spec", test.spec)
+
+        data = generate_input(**test.args)
+        torch.cuda.synchronize()
+        submission_output = custom_kernel(data)
+        torch.cuda.synchronize()
+        error = check_implementation(data, submission_output)
+        if error:
+            logger.log(f"test.{idx}.status", "fail")
+            logger.log(f"test.{idx}.error", error)
+            passed = False
+        else:
+            logger.log(f"test.{idx}.status", "pass")
+
+    if passed:
+        logger.log("check", "pass")
+        return 0
+    else:
+        logger.log("check", "fail")
+        return 112
+
+
+def benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float):
     durations = []
     # generate input data once
     data = generate_input(**test.args)
+    #  first, one obligatory correctness check
+    output = custom_kernel(data)
+    error = check_implementation(data, output)
+    if error:
+        return error
 
     # now, do multiple timing runs without further correctness testing
     # there is an upper bound of 100 runs, and a lower bound of 3 runs;
     # otherwise, we repeat until we either measure at least 10 full seconds,
     # or the relative error of the mean is below 1%.
 
-    for i in range(100):
+    for i in range(max_repeats):
+        if recheck:
+            data = generate_input(**test.args)
+        torch.cuda.synchronize()
         start = time.perf_counter_ns()
         output = custom_kernel(data)
         torch.cuda.synchronize()
         end = time.perf_counter_ns()
+
+        if recheck:
+            error = check_implementation(data, output)
+            if error:
+                return error
 
         del output
         durations.append(end-start)
 
         if i > 1:
             stats = calculate_stats(durations)
-            if stats.err / stats.mean < 0.01 or stats.mean *  stats.runs > 10e9:
+            if stats.err / stats.mean < 0.01 or stats.mean *  stats.runs > max_time_ns:
                 break
 
-    stats = calculate_stats(durations)
-    logger.log(f"duration.{idx}.spec", str(test))
-    for field in dataclasses.fields(Stats):
-        logger.log(f"duration.{idx}.{field.name}", getattr(stats, field.name))
+    return calculate_stats(durations)
 
 
-def measure_for_leaderboard(test: TestCase, logger: PopcornOutput):
+def run_benchmarking(logger: PopcornOutput, tests: list[TestCase]):
+    warm_up(tests[0])
+    passed = True
+    logger.log("benchmark-count", len(tests))
+    for idx, test in enumerate(tests):
+        logger.log(f"benchmark.{idx}.spec", test.spec)
+        result = benchmark(test, False, 100, 10e9)
+        if isinstance(result, Stats):
+            for field in dataclasses.fields(Stats):
+                logger.log(f"benchmark.{idx}.{field.name}", getattr(result, field.name))
+        else:
+            passed = False
+            logger.log(f"benchmark.{idx}.status", "fail")
+            logger.log(f"benchmark.{idx}.error", result)
+
+    if passed:
+        logger.log("check", "pass")
+        return 0
+    else:
+        logger.log("check", "fail")
+        return 112
 
 
 def main():
@@ -172,47 +213,13 @@ def main():
         seed = int(seed) if seed else 42
         set_seed(seed)
 
-        passed = True
-        if mode == "test" or mode == "benchmark":
-            for idx, test in enumerate(tests):
-                if run_test(idx, test, logger):
-                    passed = False
-                    if mode == "benchmark":
-                        break
-
-        if passed:
-            logger.log("check", "pass")
-        else:
-            logger.log("check", "fail")
-            return 112
-
         if mode == "test":
-            return 0
+            return run_testing(logger, tests)
 
         if mode == "benchmark":
-            warm_up(tests[0])
-            for idx, test in enumerate(tests):
-                benchmark(idx, test, logger)
-            return 0
+            return run_benchmarking(logger, tests)
 
-        if mode == "leaderboard":
-            warm_up(tests[0])
-
-        auto result = measure_for_leaderboard(logger, tests.back(), seed);
-        logger.log("duration.spec", tests.back().spec.c_str());
-        logger.log("duration.runs", result.runs);
-        logger.log("duration.mean", result.mean);
-        logger.log("duration.std", result.std);
-        logger.log("duration.err", result.err);
-        logger.log("duration.best", result.best);
-        logger.log("duration.worst", result.worst);
-        } else {
-        std::
-            cerr << "Unknown evaluation mode '" << mode << "'" << std::endl;
-        return ExitCodes::USAGE_ERROR;
-        }
-
-        return 2
+        # TODO implement leaderboard, script, and profile mode
 
 
 if __name__ == "__main__":

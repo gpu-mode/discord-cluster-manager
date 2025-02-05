@@ -203,6 +203,7 @@ void warm_up(const TestCase& test) {
         auto start = high_resolution_clock::now();
         while(duration_cast<milliseconds>(high_resolution_clock::now() - start).count() < 200) {
             // discard result; this is just warmup, we don't care what it returns
+            CUDA_CHECK(cudaDeviceSynchronize());
             (void)custom_kernel(warmup_data);
             CUDA_CHECK(cudaDeviceSynchronize());
         }
@@ -270,6 +271,7 @@ BenchmarkResults benchmark(const TestCase& test_case, bool test_correctness, int
             data = call_generate_input(test_case, &generate_input);
             copy = data;
         }
+        CUDA_CHECK(cudaDeviceSynchronize());
         auto start = std::chrono::high_resolution_clock::now();
         // move data into custom_kernel, so that if custom_kernel takes large std::vectors or similar by value,
         // we're not measuring the copy overhead.
@@ -312,6 +314,7 @@ int run_testing(PopcornOutput& logger, const std::vector<TestCase>& tests) {
         logger.log("test." + std::to_string(i) + ".spec", tc.spec.c_str());
         auto data = call_generate_input(tc, &generate_input);
         auto copy = data;
+        CUDA_CHECK(cudaDeviceSynchronize());
         auto submission_output = custom_kernel(std::move(data));
         CUDA_CHECK(cudaDeviceSynchronize());
 
@@ -343,10 +346,7 @@ int run_benchmarking(PopcornOutput& logger, const std::vector<TestCase>& tests) 
     logger.log("benchmark-count", tests.size());
     for (int i = 0; i < tests.size(); ++i) {
         const TestCase& tc = tests.at(i);
-                logger.log("benchmark." + std::to_string(i) + ".spec", tc.spec.c_str());
-        auto data = call_generate_input(tc, &generate_input);
-        auto copy = data;
-        auto submission_output = custom_kernel(std::move(data));
+        logger.log("benchmark." + std::to_string(i) + ".spec", tc.spec.c_str());
 
         auto result = benchmark(tc, false, 100, 10e9);
         if(std::holds_alternative<BenchmarkStats>(result)) {
@@ -417,6 +417,7 @@ int main(int argc, const char* argv[]) {
             logger.log("test.0.error", rep.message().c_str());
         }
     } else {
+        // TODO implement script and profile modes
         std::cerr << "Unknown evaluation mode '" << mode << "'" << std::endl;
         return ExitCodes::USAGE_ERROR;
     }

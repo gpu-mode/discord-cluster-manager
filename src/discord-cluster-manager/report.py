@@ -177,7 +177,7 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
         if comp is not None and not comp.success:
             await thread.send("❌ Compilation failed")
             return
-        else:
+        elif comp is not None:
             await thread.send("✅ Compilation successful")
 
         if "test" not in runs or not runs["test"].success:
