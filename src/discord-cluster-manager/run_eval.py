@@ -251,11 +251,13 @@ def run_program(args: list[str], seed: int, timeout: int = 60) -> RunResult:
     )
 
 
-def run_evaluation(call: list[str],
-                   mode: str,
-                   tests: Optional[str] = None,
-                   benchmarks: Optional[str] = None,
-                   seed: Optional[int] = None) -> dict[str, RunResult]:
+def run_evaluation(
+    call: list[str],
+    mode: str,
+    tests: Optional[str] = None,
+    benchmarks: Optional[str] = None,
+    seed: Optional[int] = None,
+) -> dict[str, RunResult]:
     results = {}
     if mode == "test":
         with tempfile.NamedTemporaryFile("w") as tests_file:
@@ -288,7 +290,9 @@ def run_evaluation(call: list[str],
             with tempfile.NamedTemporaryFile("w") as bench_file:
                 bench_file.write(benchmarks)
                 bench_file.flush()
-                results["leaderboard"] = run_program(call + ["leaderboard", bench_file.name], seed=seed)
+                results["leaderboard"] = run_program(
+                    call + ["leaderboard", bench_file.name], seed=seed
+                )
 
     else:
         assert mode == "script"

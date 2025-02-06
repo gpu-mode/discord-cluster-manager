@@ -53,13 +53,16 @@ class SubmissionMode(Enum):
     Different types of submission that can be made:
     Test: Run tests and give detailed results about passed/failed tests. These have short timeouts.
     Benchmark: Run larger benchmarks. Each benchmark is tested once, and then run multiple times.
-    Profile: Gather profiling information. One selected benchmark is run under the profiler. No testing
-        is performed in this mode (sometimes, you need to profile deliberately broken code)
-    Leaderboard: Official submission to the leaderboard. This first runs public tests, then a repeated
-        invocation of a single benchmark. Feedback for the secret benchmark is only very limited (no stdout/stderr).
-    Private: Special run that does test followed by leaderboard (on a secret seed), but gives only very limited feedback.
+    Profile: Gather profiling information. One selected benchmark is run under the profiler. No
+        testing is performed in this mode (sometimes, you need to profile deliberately broken code)
+    Leaderboard: Official submission to the leaderboard. This first runs public tests, then a
+        repeated invocation of a single benchmark. Feedback for the secret benchmark is only very
+        limited (no stdout/stderr).
+    Private: Special run that does test followed by leaderboard (on a secret seed), but gives only
+        very limited feedback.
     Script: Submit an arbitrary script.
     """
+
     TEST = "test"
     BENCHMARK = "benchmark"
     PROFILE = "profile"
