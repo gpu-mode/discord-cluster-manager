@@ -20,7 +20,7 @@ def flush_database():
     try:
         # Connect to database
         print("📡 Connecting to database...")
-        connection = psycopg2.connect(DATABASE_URL)
+        connection = psycopg2.connect(DATABASE_URL, sslmode="require")
         cursor = connection.cursor()
 
         # Drop existing tables

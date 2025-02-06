@@ -97,7 +97,11 @@ class SubmitCog(commands.Cog):
         Function invoked by `leaderboard_cog` to handle a leaderboard run.
         """
         thread, result = await self._handle_submission(
-            interaction, gpu_type, script=script, task=task, mode=mode
+            interaction,
+            gpu_type,
+            script=script,
+            task=task,
+            mode=mode,
         )
 
         return thread, result
@@ -135,13 +139,14 @@ class SubmitCog(commands.Cog):
             if successful, returns the created discord thread, and the result of
             the run.
         """
+        thread_name = f"{self.name} - {mode.value.capitalize()} Job"
 
         script_content = await self._validate_input_file(interaction, script)
         if script_content is None:
             return None, None
 
         # TODO figure out the correct way to handle messaging here
-        thread = await self.bot.create_thread(interaction, gpu_type.name, f"{self.name} Job")
+        thread = await self.bot.create_thread(interaction, gpu_type.name, f"{thread_name}")
         await thread.send(
             f"Starting {mode.value.capitalize()} job on {self.name} for "
             f"`{script.filename}` with {gpu_type.name}..."
@@ -181,7 +186,7 @@ class SubmitCog(commands.Cog):
         except UnicodeError:
             await send_discord_message(
                 interaction,
-                f"Could not decode your file `{script.filename}`.\n" f"Is it UTF-8?",
+                f"Could not decode your file `{script.filename}`.\nIs it UTF-8?",
                 ephemeral=True,
             )
             return None
