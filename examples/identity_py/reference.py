@@ -4,9 +4,9 @@ from utils import verbose_allclose
 
 
 def generate_input(size: int, seed: int) -> input_t:
-    gen = torch.Generator()
+    gen = torch.Generator(device='cuda')
     gen.manual_seed(seed)
-    data = torch.empty(size)
+    data = torch.empty(size, device='cuda', dtype=torch.float16)
     data.uniform_(0, 1, generator=gen)
     return data
 

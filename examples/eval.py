@@ -235,6 +235,7 @@ def main():
                 logger.log("test-count", 1)
                 logger.log("test.0.status", "fail")
                 logger.log("test.0.error", str(result)) #TODO: Make sure result implements __str__?
+        
         else:
             # TODO: Implement script and profile mode
             return 2

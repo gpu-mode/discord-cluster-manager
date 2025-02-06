@@ -19,6 +19,7 @@ operating_sys = "ubuntu22.04"
 tag = f"{cuda_version}-{flavor}-{operating_sys}"
 
 # Move this to another file later:
+# TODO: only cuda image is used, we can remove this one
 python_image = Image.debian_slim(python_version="3.10").pip_install(
     [
         "torch",
