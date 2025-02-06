@@ -281,6 +281,7 @@ BenchmarkResults benchmark(const TestCase& test_case, bool test_correctness, int
 
         if(test_correctness) {
             TestReporter reporter;
+            copy = data;
             check_implementation(reporter, copy, submission_output);
 
             if(!reporter.has_passed()) {
