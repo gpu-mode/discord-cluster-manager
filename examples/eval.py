@@ -5,6 +5,7 @@ import os
 import sys
 import math
 from pathlib import Path
+from typing import Any
 
 import torch.cuda
 
@@ -134,7 +135,7 @@ def run_testing(logger: PopcornOutput, tests: list[TestCase]):
         return 112
 
 
-def benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float):
+def benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float) -> Stats | Any:
     durations = []
     # generate input data once
     data = generate_input(**test.args)
@@ -218,8 +219,25 @@ def main():
 
         if mode == "benchmark":
             return run_benchmarking(logger, tests)
-
-        # TODO implement leaderboard, script, and profile mode
+        
+        if mode == "leaderboard":
+            warm_up(tests[0])
+            result = benchmark(tests[-1], True, 100, 30e9)
+            if isinstance(result, Stats):
+                logger.log("benchmark-count", 1)
+                logger.log(f"benchmark.0.spec", tests[-1].spec)
+                logger.log(f"benchmark.0.runs", result.runs)
+                logger.log(f"benchmark.0.mean", result.mean)
+                logger.log(f"benchmark.0.std", result.std)
+                logger.log(f"benchmark.0.err", result.err)
+                logger.log("check", "pass")
+            else:
+                logger.log("test-count", 1)
+                logger.log("test.0.status", "fail")
+                logger.log("test.0.error", str(result)) #TODO: Make sure result implements __str__?
+        else:
+            # TODO: Implement script and profile mode
+            return 2
 
 
 if __name__ == "__main__":
