@@ -30,9 +30,9 @@ static output_t ref_kernel(input_t data) {
   return (output_t) data;
 }
 
-static void check_implementation(TestReporter& reporter, output_t out, output_t ref, float epsilon = 1e-5) {
+static void check_implementation(TestReporter& reporter, input_t data, output_t out, float epsilon = 1e-5) {
   // input_t data = generate_input();
-  // output_t reference_out = reference(data);
+  output_t ref = ref_kernel(data);
 
   if(out.size() != ref.size()) {
       if(!reporter.check_equal("size mismatch", out.size(), ref.size())) return;
