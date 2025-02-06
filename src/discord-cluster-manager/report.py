@@ -201,7 +201,7 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
         if "leaderboard" not in runs or not runs["leaderboard"].success:
             await thread.send("❌ Running leaderboard failed")
         elif not runs["leaderboard"].passed:
-            await thread.send("❌ Leaderboard validation failed")
+            await thread.send("❌ Leaderboard run failed")
             return
         else:
             await thread.send("✅ Leaderboard run successful")
@@ -217,7 +217,7 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
         test_run = runs["test"]
 
         if not test_run.success:
-            await _generate_crash_report(thread, runs['test'])
+            await _generate_crash_report(thread, runs["test"])
             return
 
         if not test_run.passed:
@@ -235,7 +235,7 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
     if "benchmark" in runs:
         bench_run = runs["benchmark"]
         if not bench_run.success:
-            await _generate_crash_report(thread, runs['benchmark'])
+            await _generate_crash_report(thread, runs["benchmark"])
             return
 
         num_bench = int(bench_run.result["benchmark-count"])
