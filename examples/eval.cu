@@ -269,13 +269,13 @@ BenchmarkResults benchmark(const TestCase& test_case, bool test_correctness, int
         // stricter checking for leaderboard submissions
         if(test_correctness) {
             data = call_generate_input(test_case, &generate_input);
-            copy = data;
         }
         CUDA_CHECK(cudaDeviceSynchronize());
+        copy = data;
         auto start = std::chrono::high_resolution_clock::now();
         // move data into custom_kernel, so that if custom_kernel takes large std::vectors or similar by value,
         // we're not measuring the copy overhead.
-        auto submission_output = custom_kernel(std::move(data));
+        auto submission_output = custom_kernel(std::move(copy));
         CUDA_CHECK(cudaDeviceSynchronize());
         auto end = std::chrono::high_resolution_clock::now();
 
