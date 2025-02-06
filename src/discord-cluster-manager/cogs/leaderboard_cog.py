@@ -735,7 +735,7 @@ class LeaderboardCog(commands.Cog):
             leaderboard_name,
             datetime.now(timezone.utc) + timedelta(days=365),
             task=task,
-            gpu=gpu,
+            gpu=gpu.value if gpu else None,
         ):
             await send_discord_message(
                 interaction,
