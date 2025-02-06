@@ -1,5 +1,4 @@
 import asyncio
-import os
 import tempfile
 import zipfile
 from datetime import datetime, timedelta, timezone
@@ -85,7 +84,27 @@ class LeaderboardSubmitCog(app_commands.Group):
 
         try:
             if result.success:
-                score = float(result.run.result["duration.mean"]) / 1e9
+                user_id = (
+                    interaction.user.global_name
+                    if interaction.user.nick is None
+                    else interaction.user.nick
+                )
+
+                if result.runs["test"].result["check"] != "pass":
+                    await discord_thread.send(
+                        f"Ran on {gpu.name} using {runner_name} runners!\n"
+                        + f"Leaderboard '{leaderboard_name}'.\n"
+                        + f"Submission title: {script.filename}.\n"
+                        + f"Submission user: {user_id}.\n"
+                    )
+                    return
+
+                # TODO: Make this more flexible, not just functional
+                score = 0.0
+                num_benchmarks = int(result.runs["benchmark"].result["benchmark-count"])
+                for i in range(num_benchmarks):
+                    score += float(result.runs["benchmark"].result[f"benchmark.{i}.mean"]) / 1e9
+                score /= num_benchmarks
 
                 with self.bot.leaderboard_db as db:
                     db.create_submission(
@@ -99,12 +118,6 @@ class LeaderboardSubmitCog(app_commands.Group):
                             "gpu_type": gpu.name,
                         }
                     )
-
-                user_id = (
-                    interaction.user.global_name
-                    if interaction.user.nick is None
-                    else interaction.user.nick
-                )
 
                 await discord_thread.send(
                     f"Successfully ran on {gpu.name} using {runner_name} runners!\n"
