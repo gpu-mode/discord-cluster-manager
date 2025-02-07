@@ -95,6 +95,12 @@ class Stats:
 
 
 def calculate_stats(durations: list[int]):
+    """
+    Calculate statistical data from a list of durations.
+
+    @param durations: A list of durations in nanoseconds.
+    @return: A Stats object containing the number of runs, mean, standard deviation, error, best, and worst durations.
+    """
     runs = len(durations)
     total = sum(durations)
     best = min(durations)
@@ -110,6 +116,13 @@ def calculate_stats(durations: list[int]):
 
 
 def run_testing(logger: PopcornOutput, tests: list[TestCase]):
+    """
+    Executes the actual test case code and checks for correctness.
+
+    @param logger: A PopcornOutput object used for logging test results.
+    @param tests: A list of TestCase objects representing the test cases to be executed.
+    @return: An integer representing the exit status: 0 if all tests pass, otherwise 112.
+    """
     passed = True
     logger.log("test-count", len(tests))
     for idx, test in enumerate(tests):
@@ -136,6 +149,15 @@ def run_testing(logger: PopcornOutput, tests: list[TestCase]):
 
 
 def benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float) -> Stats | Any:
+    """
+    For a particular test case, check correctness (if applicable) and grab runtime results.
+
+    @param test: TestCase object.
+    @param recheck: Flag for whether to explicitly check functional correctness.
+    @param max_repeats: Number of trials to repeat.
+    @param max_time_ns: Timeout time in nanoseconds.
+    @return: A Stats object for this particular benchmark case or an error if the test fails.
+    """
     durations = []
     # generate input data once
     data = generate_input(**test.args)
@@ -176,6 +198,13 @@ def benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: floa
 
 
 def run_benchmarking(logger: PopcornOutput, tests: list[TestCase]):
+    """
+    Executes benchmarking code for a CUDA Kernel and logs runtimes.
+
+    @param logger: A PopcornOutput object used for logging benchmark results.
+    @param tests: A list of TestCase objects representing the test cases to be benchmarked.
+    @return: An integer representing the exit status: 0 if all benchmarks pass, otherwise 112.
+    """
     warm_up(tests[0])
     passed = True
     logger.log("benchmark-count", len(tests))
