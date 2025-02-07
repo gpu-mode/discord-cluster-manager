@@ -106,25 +106,25 @@ class LeaderboardSubmitCog(app_commands.Group):
                     score += float(result.runs["benchmark"].result[f"benchmark.{i}.mean"]) / 1e9
                 score /= num_benchmarks
 
-                with self.bot.leaderboard_db as db:
-                    db.create_submission(
-                        {
-                            "submission_name": script.filename,
-                            "submission_time": datetime.now(),
-                            "leaderboard_name": leaderboard_name,
-                            "code": submission_content,
-                            "user_id": interaction.user.id,
-                            "submission_score": score,
-                            "gpu_type": gpu.name,
-                        }
-                    )
+                # TODO: specify what LB it saves to
+                if mode == SubmissionMode.LEADERBOARD:
+                    with self.bot.leaderboard_db as db:
+                        db.create_submission(
+                            {
+                                "submission_name": script.filename,
+                                "submission_time": datetime.now(),
+                                "leaderboard_name": leaderboard_name,
+                                "code": submission_content,
+                                "user_id": interaction.user.id,
+                                "submission_score": score,
+                                "gpu_type": gpu.name,
+                            }
+                        )
 
                 await discord_thread.send(
-                    f"Successfully ran on {gpu.name} using {runner_name} runners!\n"
-                    + f"Leaderboard '{leaderboard_name}'.\n"
-                    + f"Submission title: {script.filename}.\n"
-                    + f"Submission user: {user_id}.\n"
-                    + f"Runtime: {score:.9f} seconds.",
+                    f"\nLeaderboard `{leaderboard_name}`:\n"
+                    + f"> **{user_id}**'s `{script.filename}` on `{gpu.name}` ran "
+                    + f"for `{score:.9f}` seconds!",
                 )
         except Exception as e:
             logger.error("Error in leaderboard submission", exc_info=e)
@@ -241,7 +241,7 @@ class LeaderboardSubmitCog(app_commands.Group):
         if len(gpus) == 1:
             await send_discord_message(
                 interaction,
-                f"Running on GPU: **{gpus[0]}**",
+                f"Running for `{leaderboard_name}` on GPU: **{gpus[0]}**",
                 ephemeral=True,
             )
             selected_gpus = gpus
