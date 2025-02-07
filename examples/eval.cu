@@ -220,6 +220,12 @@ struct BenchmarkStats {
 };
 
 BenchmarkStats calculate_stats(const std::vector<std::int64_t>& durations) {
+    /**
+     * Aggregate runtime statistics for a particular set of runtimes.
+     * 
+     * @param durations A sequence of runtimes for a particular benchmark.
+     * @return A set of statistics for this particular benchmark case.
+     */
     int runs = (int)durations.size();
     // calculate duration statistics
     std::int64_t total_duration = std::accumulate(durations.begin(), durations.end(), (std::int64_t)0);
@@ -243,6 +249,15 @@ BenchmarkStats calculate_stats(const std::vector<std::int64_t>& durations) {
 using BenchmarkResults = std::variant<BenchmarkStats, TestReporter>;
 
 BenchmarkResults benchmark(const TestCase& test_case, bool test_correctness, int max_repeats, float max_time_ns) {
+    /**
+     * For a particular test case, check correctness (if applicable) and grab runtime results.
+     * 
+     * @param test_case Test case object.
+     * @param test_correctness Flag for whether to explicitly check functional correctness
+     * @param max_repeats Number of trials to repeat
+     * @param max_time_ns Timeout time
+     * @return A set of statistics for this particular benchmark case or a TestReporter result.
+     */
     std::vector<std::int64_t> durations;
     durations.reserve(max_repeats);
 
@@ -308,6 +323,13 @@ BenchmarkResults benchmark(const TestCase& test_case, bool test_correctness, int
 
 
 int run_testing(PopcornOutput& logger, const std::vector<TestCase>& tests) {
+    /**
+     * Executes the actual test case code, and check for correctness.
+     * 
+     * @param logger A PopcornOutput object used for logging test results.
+     * @param tests A vector of TestCase objects representing the test cases to be executed.
+     * @return An integer representing the exit status: EXIT_SUCCESS if all tests pass, otherwise EXIT_TEST_FAIL.
+     */
     bool pass = true;
     logger.log("test-count", tests.size());
     for (int i = 0; i < tests.size(); ++i) {
@@ -342,6 +364,13 @@ int run_testing(PopcornOutput& logger, const std::vector<TestCase>& tests) {
 };
 
 int run_benchmarking(PopcornOutput& logger, const std::vector<TestCase>& tests) {
+    /**
+     * Executes benchmarking code for a CUDA Kernel and logs runtimes.
+     * 
+     * @param logger A PopcornOutput object used for logging benchmark results.
+     * @param tests A vector of TestCase objects representing the test cases to be benchmarked.
+     * @return An integer representing the exit status: EXIT_SUCCESS if all benchmarks pass, otherwise EXIT_TEST_FAIL.
+     */
     warm_up(tests.front());
     bool pass = true;
     logger.log("benchmark-count", tests.size());
