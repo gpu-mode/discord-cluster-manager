@@ -122,14 +122,16 @@ class LeaderboardSubmitCog(app_commands.Group):
                         )
 
                 await discord_thread.send(
-                    f"\nLeaderboard `{leaderboard_name}`:\n"
+                    "## Result:\n"
+                    + f"Leaderboard `{leaderboard_name}`:\n"
                     + f"> **{user_id}**'s `{script.filename}` on `{gpu.name}` ran "
                     + f"for `{score:.9f}` seconds!",
                 )
         except Exception as e:
             logger.error("Error in leaderboard submission", exc_info=e)
             await discord_thread.send(
-                f"Leaderboard submission to '{leaderboard_name}' on {gpu.name} "
+                "## Result:\n"
+                + f"Leaderboard submission to '{leaderboard_name}' on {gpu.name} "
                 + f"using {runner_name} runners failed!\n",
             )
 
