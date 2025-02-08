@@ -14,7 +14,10 @@ def ref_kernel(data: input_t) -> output_t:
     return data
 
 
-def check_implementation(submission_output, reference_output) -> bool:
+def check_implementation(
+        submission_output: output_t, 
+        reference_output:output_t,
+    ) -> bool:
     for i in range(N_SIZES):
         reasons = verbose_allclose(submission_output[i], reference_output[i])
         if len(reasons) > 0:

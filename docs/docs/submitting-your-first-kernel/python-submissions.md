@@ -16,73 +16,58 @@ actually view exactly what this leaderboard expects by looking at the reference 
 following function signatures:
 
 ```python title="identity_py_reference_code.py"
-# More generically, a leaderboard needs to define an InputType
-# and OutputType. They do not need to be List[torch.Tensor]
+from task import input_t, output_t
 
 def check_implementation(
-        custom_output: List[torch.Tensor], 
-        ref_output: List[torch.Tensor]
+        submission_output: output_t,
+        reference_output: output_t,
     ) -> bool:
     ...
 
 # Generate returns InputType
-def generate_input() -> List[torch.Tensor]:
+def generate_input() -> input_t:
     ...
 
-def ref_kernel(xs: List[torch.Tensor]) -> List[torch.Tensor]:
-    return xs
+def ref_kernel(data: input_t) -> output_t:
+    return data
 ```
 You can read through the exact implementation details if you'd like as the file is quite small. To
 better understand how to write a kernel on this leaderboard, it is useful to first understand how we evaluate user submitted kernels. 
 Under the hood, the basic submission flow is as follows:
-1. The evaluation harness will call `data = generate_input() -> InputType` to produce an `InputType`
-   object. This will typically be a `List[torch.Tensor]`, or just a list of tensors to evaluate on.
-2. The evaluation harness will take the `InputType` data and pass it through both
-   `ref_kernel(InputType data) -> OutputType` and a user-defined `custom_kernel(InputType data) -> OutputType`.
+1. The evaluation harness will call `data = generate_input() -> input_t` to produce an `input_t`
+   object. `input_t` will typically be an alias for `torch.Tensor`, but it is flexible enough to represent any type of input.
+2. The evaluation harness will take the `input_t` data and pass it through both
+   `ref_kernel(data: input_t) -> output_t` and a user-defined `custom_kernel(data: input_t) -> output_t`.
 3. The evaluation harness will check the correctness of the user-defined `custom_kernel` against the
-   `ref_kernel` using the leaderboard-defined `check_implementation(OutputType ref_out, OutputType
-    submission_out)`.
+   `ref_kernel` using the leaderboard-defined `check_implementation(ref_out: output_t, submission_out: output_t)`.
 
-The idea here is that `InputType` and `OutputType` could actually be multiple inputs (e.g. `(float, float,
+**Remark**. The key idea here is that `input_t` and `output_t` could actually be multiple inputs (e.g. `(float, float,
 torch.Tensor)`), a batch of inputs, etc. The leaderboard creator will specify how to check for
 correctness, and you can view all of this logic for each leaderboard. In the example above,
-`InputType = OutputType = List[torch.Tensor]`, but this need not be the case.
+`input_t = output_t = torch.Tensor`, but in general you should look at `task.py` to get the alias type (you can also just look at 
+the `ref_kernel` to get an idea for the input/output types)
 
 ## Submission Files
 Submission files are generally flexible, but to interface easily with our evaluation scaffolding, we
 require submission files to **define and implement** the following function signature (**the
-function that gets called by our harness is `custom_kernel`**):
+function that gets called by our harness is `custom_kernel`**). For example, for submitting to the identity kernel
+leaderboard, we can submit:
 
 ```python title="submission.py"
-# InputType, OutputType defined by leaderboard...
+from task import input_t, output_t
 
 # User kernel implementation.
-def custom_kernel(input: InputType) -> OutputType:
+def custom_kernel(input: input_t) -> output_t:
     # Implement me...
-```
-
-The `InputType` and `OutputType` are generics defined by the leaderboard (you can view the
-leaderboard reference code that defines these types, see [Available Discord
-Commands](../available-discord-commands)), and are typically going to be
-of the form `List[torch.Tensor]`. We choose this generic format to allow for things like multiple
-inputs as a tuple, as well as multiple differently sized Tensor inputs. For example, an identity kernel might look like:
-
-```python title="identity_submission.py"
-from typing import List
-import torch
-
-# Here, InputType = OutputType = List[torch.Tensor]
-def custom_kernel(input: List[torch.Tensor]) -> List[torch.Tensor]:
     return input
 ```
 
 ## Submitting a Basic Python Kernel to the Discord Bot
 The last step is submitting our kernel above to the Discord bot! In the `#submissions` channel on
-Discord, write (I'd suggest typing it out instead of copy-pasting because you have to select the
-file from your own file directory):
+Discord, write (the `key:value` parameters are named parameters that can be filled in with `value`, such as with a file):
 
 <center>
-```/leaderboard submit modal identity_py {submission.py}``` 
+```/leaderboard submit modal leaderboard_name:identity_py script:{submission.py}``` 
 </center>
 
 where you can select `{submission.py}` from your file directory. Here, we are submitting to the
@@ -106,7 +91,7 @@ passes all evaluation checks).
 
 ## Viewing the Leaderboard
 You can now view your ranking on the leaderboard compared to other participants. Type `/leaderboard
-show identity_py`. Another dropdown menu should appear, similar when you submitted your kernel. 
+show leaderboard_name:identity_py`. Another dropdown menu should appear, similar when you submitted your kernel. 
 Because we submitted to the `T4` GPU, select the `T4` option in the dropdown. Like for submissions,
 you can select multiple GPUs. In this instance, it will display each ranking on each unique GPU.
 
