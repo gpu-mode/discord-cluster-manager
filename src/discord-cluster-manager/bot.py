@@ -4,7 +4,7 @@ from datetime import datetime
 
 import discord
 import uvicorn
-from api import app, init_api
+from api.main import app, init_api
 from cogs.github_cog import GitHubCog
 from cogs.leaderboard_cog import LeaderboardCog
 from cogs.misc_cog import BotManagerCog

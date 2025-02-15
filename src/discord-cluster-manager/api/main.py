@@ -1,7 +1,7 @@
 from dataclasses import asdict
 
 from cogs.submit_cog import SubmitCog
-from consts import GPU_SELECTION
+from consts import GPU_SELECTION, SubmissionMode
 from discord import app_commands
 from fastapi import FastAPI, HTTPException, UploadFile
 from utils import LeaderboardItem, build_task_config
@@ -58,16 +58,15 @@ async def run_submission(
     gpu_name = gpu_type.upper()
 
     with bot_instance.leaderboard_db as db:
-        leaderboard_item = db.get_leaderboard(leaderboard_name)
-        reference_code = leaderboard_item["reference_code"]
+        leaderboard_item: LeaderboardItem = db.get_leaderboard(leaderboard_name)
+        task = leaderboard_item["task"]
 
     runner_cog: SubmitCog = bot_instance.get_cog(cog_name)
-    language = "cu" if file.filename.endswith((".cu", ".cuh", ".cpp")) else "py"
     config = build_task_config(
-        language,
-        reference_code,
-        file.file.read().decode("utf-8"),
-        runner_cog._get_arch(app_commands.Choice(name=gpu_name, value=gpu_name)),
+        task=task,
+        submission_content=file.file.read().decode("utf-8"),
+        arch=runner_cog._get_arch(app_commands.Choice(name=gpu_name, value=gpu_name)),
+        mode=SubmissionMode.LEADERBOARD,
     )
 
     gpu = GPU_SELECTION[runner_name.capitalize()][gpu_name]
