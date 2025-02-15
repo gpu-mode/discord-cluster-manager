@@ -29,9 +29,9 @@ class MockProgressReporter:
         pass
 
 
-@app.post("/{leaderboard_name}/{runner_name}/{gpu_type}")
+@app.post("/{leaderboard_name}/{runner_name}/{gpu_type}/{submission_mode}")
 async def run_submission(
-    leaderboard_name: str, runner_name: str, gpu_type: str, file: UploadFile
+    leaderboard_name: str, runner_name: str, gpu_type: str, submission_mode: str, file: UploadFile
 ) -> dict:
     """An endpoint that runs a submission on a given leaderboard, runner, and GPU type.
 
@@ -48,6 +48,7 @@ async def run_submission(
         dict: A dictionary containing the status of the submission and the result.
         See class `FullResult` for more details.
     """
+    submission_mode = SubmissionMode(submission_mode.lower())
 
     if not bot_instance:
         raise HTTPException(status_code=500, detail="Bot not initialized")
@@ -66,7 +67,7 @@ async def run_submission(
         task=task,
         submission_content=file.file.read().decode("utf-8"),
         arch=runner_cog._get_arch(app_commands.Choice(name=gpu_name, value=gpu_name)),
-        mode=SubmissionMode.LEADERBOARD,
+        mode=submission_mode,
     )
 
     gpu = GPU_SELECTION[runner_name.capitalize()][gpu_name]
