@@ -2,10 +2,12 @@ from enum import Enum
 from typing import Optional, Tuple, Type
 
 import discord
+from consts import SubmissionMode
 from discord import app_commands
 from discord.ext import commands
 from report import generate_report
 from run_eval import FullResult
+from task import LeaderboardTask
 from utils import build_task_config, send_discord_message, setup_logging
 
 logger = setup_logging()
@@ -88,7 +90,8 @@ class SubmitCog(commands.Cog):
         interaction: discord.Interaction,
         script: discord.Attachment,
         gpu_type: app_commands.Choice[str],
-        reference_code: str,
+        task: LeaderboardTask,
+        mode: SubmissionMode,
     ) -> Tuple[Optional[discord.Thread], Optional[FullResult]]:
         """
         Function invoked by `leaderboard_cog` to handle a leaderboard run.
@@ -97,7 +100,8 @@ class SubmitCog(commands.Cog):
             interaction,
             gpu_type,
             script=script,
-            reference_content=reference_code,
+            task=task,
+            mode=mode,
         )
 
         return thread, result
@@ -112,10 +116,7 @@ class SubmitCog(commands.Cog):
         Function invoked by the `run` command to run a single script.
         """
         await self._handle_submission(
-            interaction,
-            gpu_type,
-            script=script,
-            reference_content=None,
+            interaction, gpu_type, script=script, task=None, mode=SubmissionMode.SCRIPT
         )
 
     async def _handle_submission(
@@ -123,7 +124,8 @@ class SubmitCog(commands.Cog):
         interaction: discord.Interaction,
         gpu_type: app_commands.Choice[str],
         script: discord.Attachment,
-        reference_content: Optional[str],
+        task: Optional[LeaderboardTask],
+        mode: SubmissionMode,
     ) -> Tuple[Optional[discord.Thread], Optional[FullResult]]:
         """
         Generic function to handle code submissions.
@@ -131,35 +133,36 @@ class SubmitCog(commands.Cog):
             interaction: Interaction that started this command.
             gpu_type: Which GPU to run on.
             script: File that contains the submitted script.
-            reference_content: String with the reference code, if provided.
+            task: Task specification, of provided
 
         Returns:
             if successful, returns the created discord thread, and the result of
             the run.
         """
+        thread_name = f"{self.name} - {mode.value.capitalize()} Job"
 
         script_content = await self._validate_input_file(interaction, script)
         if script_content is None:
             return None, None
 
         # TODO figure out the correct way to handle messaging here
-        thread = await self.bot.create_thread(interaction, gpu_type.name, f"{self.name} Job")
+        thread = await self.bot.create_thread(interaction, gpu_type.name, f"{thread_name}")
         await thread.send(
-            f"Starting {self.name} job for " f"`{script.filename}` with {gpu_type.name}..."
+            f"Starting {mode.value.capitalize()} job on {self.name} for "
+            f"`{script.filename}` with {gpu_type.name}..."
         )
 
         status = await ProgressReporter.make_reporter(thread, f"Running on {self.name}...")
 
         config = build_task_config(
-            lang="py" if script.filename.endswith(".py") else "cu",
-            reference_content=reference_content,
-            submission_content=script_content,
-            arch=self._get_arch(gpu_type),
+            task=task, submission_content=script_content, arch=self._get_arch(gpu_type), mode=mode
         )
+
+        logger.info("submitting task %s to runner %s", config, self.name)
 
         result = await self._run_submission(config, gpu_type, status)
         await status.update_header(f"Running on {self.name}... ✅ success")
-        await generate_report(thread, result, has_tests=reference_content is not None)
+        await generate_report(thread, result, mode=mode)
 
         return thread, result
 
@@ -171,7 +174,9 @@ class SubmitCog(commands.Cog):
         # check file extension
         if not script.filename.endswith((".py", ".cu", ".cuh", ".cpp")):
             await send_discord_message(
-                interaction, "Please provide a Python (.py) or CUDA (.cu / .cuh / .cpp) file"
+                interaction,
+                "Please provide a Python (.py) or CUDA (.cu / .cuh / .cpp) file",
+                ephemeral=True,
             )
             return None
 
@@ -181,7 +186,7 @@ class SubmitCog(commands.Cog):
         except UnicodeError:
             await send_discord_message(
                 interaction,
-                f"Could not decode your file `{script.filename}`.\n" f"Is it UTF-8?",
+                f"Could not decode your file `{script.filename}`.\nIs it UTF-8?",
                 ephemeral=True,
             )
             return None

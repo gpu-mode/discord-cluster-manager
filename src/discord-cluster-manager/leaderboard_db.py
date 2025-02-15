@@ -1,3 +1,4 @@
+import logging
 from typing import List, Optional
 
 import discord
@@ -11,6 +12,7 @@ from env import (
     POSTGRES_USER,
 )
 from psycopg2 import Error
+from task import LeaderboardTask
 from utils import LeaderboardItem, LRUCache, SubmissionItem
 
 leaderboard_name_cache = LRUCache(max_size=512)
@@ -21,18 +23,22 @@ async def leaderboard_name_autocomplete(
     current: str,
 ) -> list[discord.app_commands.Choice[str]]:
     """Return leaderboard names that match the current typed name"""
-    cached_value = leaderboard_name_cache[current]
-    if cached_value is not None:
-        return cached_value
+    try:
+        cached_value = leaderboard_name_cache[current]
+        if cached_value is not None:
+            return cached_value
 
-    bot = interaction.client
-    with bot.leaderboard_db as db:
-        leaderboards = db.get_leaderboards()
-    filtered = [lb["name"] for lb in leaderboards if current.lower() in lb["name"].lower()]
-    leaderboard_name_cache[current] = [
-        discord.app_commands.Choice(name=name, value=name) for name in filtered[:25]
-    ]
-    return leaderboard_name_cache[current]
+        bot = interaction.client
+        with bot.leaderboard_db as db:
+            leaderboards = db.get_leaderboard_names()
+        filtered = [lb for lb in leaderboards if current.lower() in lb.lower()]
+        leaderboard_name_cache[current] = [
+            discord.app_commands.Choice(name=name, value=name) for name in filtered[:25]
+        ]
+        return leaderboard_name_cache[current]
+    except Exception as e:
+        logging.exception("Error in leaderboard autocomplete", exc_info=e)
+        return []
 
 
 class LeaderboardDB:
@@ -82,14 +88,14 @@ class LeaderboardDB:
         try:
             self.cursor.execute(
                 """
-                INSERT INTO leaderboard.leaderboard (name, deadline, reference_code, creator_id)
+                INSERT INTO leaderboard.leaderboard (name, deadline, task, creator_id)
                 VALUES (%s, %s, %s, %s)
                 RETURNING id
                 """,
                 (
                     leaderboard["name"],
                     leaderboard["deadline"],
-                    leaderboard["reference_code"],
+                    leaderboard["task"].to_str(),
                     leaderboard["creator_id"],
                 ),
             )
@@ -156,10 +162,14 @@ class LeaderboardDB:
             print(f"Error during leaderboard submission: {e}")
             self.connection.rollback()  # Ensure rollback if error occurs
 
+    def get_leaderboard_names(self) -> list[str]:
+        self.cursor.execute("SELECT name FROM leaderboard.leaderboard")
+        return [x[0] for x in self.cursor.fetchall()]
+
     def get_leaderboards(self) -> list[LeaderboardItem]:
         self.cursor.execute(
             """
-            SELECT id, name, deadline, reference_code, creator_id
+            SELECT id, name, deadline, task, creator_id
             FROM leaderboard.leaderboard
             """
         )
@@ -178,7 +188,7 @@ class LeaderboardDB:
                     id=lb[0],
                     name=lb[1],
                     deadline=lb[2],
-                    reference_code=lb[3],
+                    task=LeaderboardTask.from_dict(lb[3]),
                     gpu_types=gpu_types,
                     creator_id=lb[4],
                 )
@@ -210,7 +220,7 @@ class LeaderboardDB:
     def get_leaderboard(self, leaderboard_name: str) -> LeaderboardItem | None:
         self.cursor.execute(
             """
-            SELECT id, name, deadline, reference_code, creator_id
+            SELECT id, name, deadline, task, creator_id
             FROM leaderboard.leaderboard
             WHERE name = %s
             """,
@@ -220,11 +230,12 @@ class LeaderboardDB:
         res = self.cursor.fetchone()
 
         if res:
+            task = LeaderboardTask.from_dict(res[3])
             return LeaderboardItem(
                 id=res[0],
                 name=res[1],
                 deadline=res[2],
-                reference_code=res[3],
+                task=task,
                 creator_id=res[4],
             )
         else:

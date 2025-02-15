@@ -9,56 +9,43 @@
 #include <random>
 #include <iostream>
 
-#define N_SIZES 10
-const int Ns[N_SIZES] = {128,  256,  512,   1024,  2048,
-                         4096, 8192, 16384, 32768, 65536};
+#include "task.h"
 
-using input_t = std::array<std::vector<float>, N_SIZES>;
-using output_t = input_t;
-
-input_t generate_input(int seed) {
+static input_t generate_input(int seed, int size) {
   std::mt19937 rng(seed);
   input_t data;
 
   std::uniform_real_distribution<float> dist(0, 1);
 
-  for (int i = 0; i < N_SIZES; ++i) {
-    data[i].resize(Ns[i]);
-    for (int j = 0; j < Ns[i]; ++j) {
-      data[i][j] = dist(rng);
-    }
+  data.resize(size);
+  for (int j = 0; j < size; ++j) {
+    data[j] = dist(rng);
   }
 
   return data;
 }
 
 // The identity kernel
-output_t ref_kernel(input_t data) {
+static output_t ref_kernel(input_t data) {
   return (output_t) data;
 }
 
-bool check_implementation(output_t out, output_t ref, float epsilon = 1e-5) {
+static void check_implementation(TestReporter& reporter, input_t data, output_t out, float epsilon = 1e-5) {
   // input_t data = generate_input();
-  // output_t reference_out = reference(data);
+  output_t ref = ref_kernel(data);
 
-  for (int i = 0; i < N_SIZES; ++i) {
-    auto ref_ptr = ref[i];
-    auto out_ptr = out[i];
+  if(out.size() != ref.size()) {
+      if(!reporter.check_equal("size mismatch", out.size(), ref.size())) return;
+  }
 
-    if(out[i].size() != Ns[i]) {
-        std::cerr <<  "SIZE MISMATCH at " << i << ": " << Ns[i] << " " << out[i].size() << std::endl;
-        return false;
-    }
-
-    for (int j = 0; j < Ns[i]; ++j) {
-      if (std::fabs(ref_ptr[j] - out_ptr[j]) > epsilon) {
-        std::cerr <<  "ERROR AT " << i << ", "<< j << ": " << ref_ptr[j] << " " << out_ptr[j] << std::endl;
-        return false;
-      }
+  for (int j = 0; j < ref.size(); ++j) {
+    if (std::fabs(ref[j] - out[j]) > epsilon) {
+        reporter.fail() << "error at " << j << ": " << ref[j] << " "  << std::to_string(out[j]);
+        return;
     }
   }
 
-  return true;
+  reporter.pass();
 }
 
 #endif

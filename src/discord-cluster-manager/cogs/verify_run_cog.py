@@ -6,8 +6,10 @@ from unittest.mock import AsyncMock
 import discord
 from cogs.github_cog import GitHubCog
 from cogs.modal_cog import ModalCog
+from consts import SubmissionMode
 from discord import app_commands
 from discord.ext import commands
+from task import make_task
 from utils import send_discord_message, setup_logging
 
 logger = setup_logging()
@@ -46,25 +48,22 @@ class VerifyRunCog(commands.Cog):
         github_command = github_cog.submit_leaderboard
         if lang == "py":
             sub_code = create_mock_attachment(
-                "submission.py", Path("examples/identity_py/submission.py").read_text()
+                "submission.py", Path("examples/softmax_py/submission.py").read_text()
             )
-            ref_code = Path("examples/identity_py/reference.py").read_text()
+            task = make_task("examples/softmax_py")
         else:
             sub_code = create_mock_attachment(
-                "test.cu", Path("examples/identity_cuda/submission.cuh").read_text()
+                "test.cu", Path("examples/identity_cuda/submission.cu").read_text()
             )
-            ref_code = Path("examples/identity_cuda/reference.cuh").read_text()
+            task = make_task("examples/identity_cuda")
 
         github_thread, _ = await github_command(
-            interaction,
-            sub_code,
-            choice,
-            ref_code,
+            interaction, sub_code, choice, task=task, mode=SubmissionMode.TEST
         )
 
         message_contents = [msg.content async for msg in github_thread.history(limit=None)]
 
-        required_patterns = ["Running on GitHub...", "'check': 'pass'"]
+        required_patterns = ["Running on GitHub...", "Passed 5/5 tests"]
 
         all_patterns_found = all(
             any(re.search(pattern, content, re.DOTALL) is not None for content in message_contents)
@@ -102,23 +101,20 @@ class VerifyRunCog(commands.Cog):
             sub_code = create_mock_attachment(
                 "submission.py", Path("examples/identity_py/submission.py").read_text()
             )
-            ref_code = Path("examples/identity_py/reference.py").read_text()
+            task = make_task("examples/identity_py")
         else:
             sub_code = create_mock_attachment(
-                "test.cu", Path("examples/identity_cuda/submission.cuh").read_text()
+                "test.cu", Path("examples/identity_cuda/submission.cu").read_text()
             )
-            ref_code = Path("examples/identity_cuda/reference.cuh").read_text()
+            task = make_task("examples/identity_cuda")
 
         modal_thread, _ = await modal_command(
-            interaction,
-            sub_code,
-            t4,
-            reference_code=ref_code,
+            interaction, sub_code, t4, task=task, mode=SubmissionMode.TEST
         )
 
         message_contents = [msg.content async for msg in modal_thread.history(limit=None)]
 
-        required_patterns = ["Running on Modal...", "Success!"]
+        required_patterns = ["Running on Modal...", "Passed 5/5 tests"]
 
         all_patterns_found = all(
             any(re.search(pattern, content, re.DOTALL) is not None for content in message_contents)
