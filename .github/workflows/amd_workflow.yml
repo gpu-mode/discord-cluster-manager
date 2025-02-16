@@ -6,6 +6,11 @@ on:
         description: 'Content of the user submission, as json string'
         required: true
         type: string
+      runner:
+        description: 'Contents for a requirements.txt file'
+        required: true
+        default: "amdgpu-mi300-x86-64"
+        type: string
       requirements:
         description: 'Contents for a requirements.txt file'
         required: false
@@ -13,17 +18,9 @@ on:
 
 jobs:
   run:
-    runs-on: ${{ matrix.runs-on }}
+    runs-on: ${{ github.event.inputs.runner }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - name: mi300
-            runs-on: amdgpu-mi300-x86-64
-            venv-dir: $GITHUB_WORKSPACE
-          - name: mi250
-            runs-on: amdgpu-mi250-x86-64
-            venv-dir: /groups/aig_sharks/pytorch_venv
     timeout-minutes: 10
     steps:
     - uses: actions/checkout@v3
@@ -32,19 +29,26 @@ jobs:
       with:
         python-version: '3.10'
 
-
     - name: Create input files
       shell: bash
       run: |
         cat > "payload.json" <<'EOL'
         ${{ github.event.inputs.payload }}
         EOL
+    
+    - name: Set venv directory based on runner
+      run: |
+        if [[ "${{ github.event.inputs.runner }}" == "amdgpu-mi250-x86-64" ]]; then
+          echo "VENV_DIR=/groups/aig_sharks/pytorch_venv" >> $GITHUB_ENV
+        else
+          echo "VENV_DIR==$GITHUB_WORKSPACE" >> $GITHUB_ENV
+        fi
 
     - name: Setup Virtual Environment and Install Dependencies
       shell: bash
       run: |
-        python -m venv ${{ matrix.venv-dir }}
-        source ${{ matrix.venv-dir }}/bin/activate
+        python -m venv ${VENV_DIR}
+        source ${VENV_DIR}/bin/activate
         pip install --upgrade pip
         if [[ -n "${{ github.event.inputs.requirements }}" ]]; then
           cat > "requirements.txt" <<'EOL'
@@ -52,10 +56,11 @@ jobs:
         EOL
         pip install -r "requirements.txt"
         fi
+
     - name: Run script
       shell: bash
       run: |
-        source ${{ matrix.venv-dir }}/bin/activate
+        source ${VENV_DIR}/bin/activate
         python3 .github/workflows/runner.py
         cat result.json  # Debug: show output
 
