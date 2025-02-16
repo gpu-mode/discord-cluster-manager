@@ -137,8 +137,8 @@ into three categories, which you can open in the tabs below.
         **Arguments:** 
         - `leaderboard_name` *(required)*: Name of the leaderboard to create.
         - `deadline` *(required)*: When the leaderboard finishes. Must be of the form YYYY-MM-DD.
-        - `reference_code` *(required)*: The reference code that defines the leaderboard. This file
-        must obey a set of implemented function signatures according to [Creating a Leaderboard](#),
+        - `task_zip` *(required)*: The evaluation harness (as a .zip) that defines the leaderboard. This folder
+        must specify a `task.yml` and the relevant files, which we detail in [Creating a Leaderboard](./creating-a-leaderboard/cuda-creations),
         and its file extension (e.g. `.py` or `.cu`) determines whether the leaderboard submissions must be
         in Python or CUDA/C++.
 

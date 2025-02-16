@@ -11,6 +11,8 @@ environment. In this brief section, we go over how to use these libraries.
 TBD
 
 ### ThunderKittens in CUDA Submissions
+By default we compile CUDA leaderboards with the ThunderKittens header library (e.g. `ThunderKittens/include`), and users
+can use it as if it were available locally:
 ```cpp title="submission.cu"
 #include "kittens.cuh"
 using namespace kittens;

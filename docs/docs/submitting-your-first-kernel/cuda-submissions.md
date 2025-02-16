@@ -24,9 +24,10 @@ logic for generating inputs, the reference kernel, and the leaderboard-defined c
 
 #include "task.h"
 
-static bool check_implementation(output_t custom_output, output_t ref_output) {
+static void check_implementation(TestReporter& reporter, input_t data, output_t user_output) {
+    // Reporter reports whether implementation passed or failed.
     ...
-    return ...
+    reporter.pass();
 }
 
 static input_t generate_input(int seed) {
@@ -47,11 +48,11 @@ better understand how to write a kernel on this leaderboard, it is useful to fir
 
 Under the hood, the basic submission flow is as follows:
 1. **Data generation.** The evaluation harness will call `data = generate_input() -> input_t` to produce an `input_t`
-   object. This will typically be a `array<vector<float>>`, or just a list of tensors to evaluate on.
+   object. This will typically be a `array<vector<float>>`, i.e. just a list of tensors to evaluate on.
 2. **Reference example.** The evaluation harness will take the `input_t` data and pass it through both
    `ref_kernel(input_t data) -> output_t` and a user-defined `custom_kernel(input_t data) -> output_t`.
 3. **Correctness logic.** The evaluation harness will check the correctness of the user-defined `custom_kernel()` against the
-   `ref_kernel` using the leaderboard-defined `check_implementation(output_t custom_out, output_t ref_out)`.
+   `ref_kernel(data)` using the leaderboard-defined `check_implementation(input_t data, output_t custom_out)`.
 
 **Remark.** The key idea here is that `input_t` and `output_t` could actually be multiple inputs (e.g. `(float, float,
 torch.Tensor)`), a batch of inputs, etc. The leaderboard creator will specify how to check for
@@ -59,7 +60,7 @@ correctness, and you can view all of this logic for each leaderboard. In the exa
 `input_t = output_t = array<vector<float>, 10>`, but int general you should look at `task.h` to get the alias type (you can also
 just look at the `ref_kernel` to get an idea for the input/output types); for example:
 
-```cuda title="task.h
+```cpp title="task.h
 #ifndef __POPCORN_TASK_H__
 #define __POPCORN_TASK_H__
 
@@ -67,6 +68,7 @@ just look at the `ref_kernel` to get an idea for the input/output types); for ex
 #define N_SIZES 10
 const int Ns[N_SIZES] = {128,  256,  512,   1024,  2048,
                          4096, 8192, 16384, 32768, 65536};
+
 using input_t = std::array<std::vector<float>, N_SIZES>;
 using output_t = input_t;
 

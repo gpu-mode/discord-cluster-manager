@@ -24,10 +24,11 @@ from task import input_t, output_t, ...
 def check_implementation(
         input: input_t,
         custom_output: output_t,
-    ) -> bool:
+    ) -> str:
+    # Empty string denotes success
     reference_output = ref_kernel(input)
     ...
-    return ...
+    return ''
 
 # Generate returns InputType
 def generate_input(..., seed: int) -> input_t:
