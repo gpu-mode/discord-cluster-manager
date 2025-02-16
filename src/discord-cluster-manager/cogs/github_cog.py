@@ -29,12 +29,12 @@ class GitHubCog(SubmitCog):
 
         lang_name = {"py": "Python", "cu": "CUDA"}[lang]
 
-        if selected_gpu = GPUType.AMD:
+        if selected_gpu == GPUType.AMD:
             gpu_name = config.get("gpu", "mi300")
             runner_name = {"mi250": "amdgpu-mi250-x86-64", "mi300": "amdgpu-mi300-x86-64"}[gpu_name]
 
         logger.info(f"Attempting to trigger GitHub action for {lang_name} on {selected_gpu.name}")
-        if selected_gpu = GPUType.AMD:
+        if selected_gpu == GPUType.AMD:
             logger.info(f"Running on {gpu_name} amd gpu")
 
         workflow_file = selected_gpu.value
