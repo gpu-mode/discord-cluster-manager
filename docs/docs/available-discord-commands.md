@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 5
 ---
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
@@ -23,7 +23,7 @@ into three categories, which you can open in the tabs below.
 
         ---
         ### `/leaderboard submit modal {leaderboard_name} {script}`
-        **Description:** Submit leaderboard data on a Modal instance, which currently allows submissions on `NVIDIA T4`,
+        **Description:** Submit a file to a leaderboard on the Modal runners, which currently allows submissions on `NVIDIA T4`,
         `NVIDIA L4`, `NVIDIA A100`, and `NVIDIA H100` GPUs.
 
         **Arguments:**
@@ -34,13 +34,26 @@ into three categories, which you can open in the tabs below.
         ---
 
         ### `/leaderboard submit github {leaderboard_name} {script}`
-        **Description:** Submit leaderboard data on the GitHub runners, which currently allow submissions on `NVIDIA T4`
+        **Description:** Submit a file to a leaderboard on the GitHub runners, which currently allow submissions on `NVIDIA T4`
         and `AMD` GPUs.
 
         **Arguments:**
         - `leaderboard_name` *(required)*: Name of the leaderboard to submit to.
         - `script` *(required)*: Script to be submitted. Note, a Python leaderboard expects a Python
         submission file, and a CUDA leaderboard expects a CUDA submission file.
+
+        ---
+        ### `/leaderboard submit benchmark {runner} {leaderboard_name} {script}`
+        **Description:** Submit a file to a leaderboard on the GitHub / Modal runners, purely for benchmarking
+        purposes (it does not make an official submission to a leaderboard). This command is useful for debugging, 
+        and provides useful compiler / execution feedback, as well as runtime numbers.
+
+        **Arguments:**
+        - `runner` *(required)*: Either GitHub or Modal (gives access to different GPUs).
+        - `leaderboard_name` *(required)*: Name of the leaderboard to submit to.
+        - `script` *(required)*: Script to be submitted. Note, a Python leaderboard expects a Python
+        submission file, and a CUDA leaderboard expects a CUDA submission file.
+
   </TabItem>
   <TabItem value="tools" label="Useful Info Commands">
 
@@ -90,20 +103,10 @@ into three categories, which you can open in the tabs below.
 
         ---
 
-        ### `/leaderboard eval-code {language}`
-        **Description:** On the leaderboard side, we take the reference kernel and user submission
-        kernel and verify that both produce the same outputs and time the user submission. This
-        command allows participants to view this script for Python / CUDA leaderboards.
-
-        **Arguments:** 
-        - `language` *(required)*: `cuda` or `python` evaluation script to retrieve.
-
-        ---
-
-        ### `/leaderboard reference-code {leaderboard_name}`
+        ### `/leaderboard task {leaderboard_name}`
         **Description:** Each leaderboard has a set of functions, including the reference kernel,
-        that the leaderboard creator implemented. As a participant, you can view this code using
-        this command.
+        the evaluation harness, and task specifications, that the leaderboard creator implemented. 
+        As a participant, you can view all of these code files using this command.
 
         **Arguments:** 
         - `leaderboard_name` *(required)*: Name of the leaderboard to retrieve reference code for.

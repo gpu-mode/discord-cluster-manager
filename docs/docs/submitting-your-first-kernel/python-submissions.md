@@ -3,49 +3,69 @@ sidebar_position: 2
 ---
 
 # Submitting to Python Leaderboards
-As mentioned earlier, Python leaderboards use a Python reference kernel and expect a Python
-submission file from the user. The only restriction is that the user submits **exactly one file that
+As mentioned earlier, Python leaderboards **expect a Python
+submission file** from the user. The only restriction is that the user submits **exactly one file that
 is in Python**, but participants can still submit CUDA code through [inlining CUDA code](https://pytorch.org/docs/stable/cpp_extension.html#torch.utils.cpp_extension.load_inline) or writing
 a [CUDA extension / pybinding](https://pytorch.org/tutorials/advanced/custom_ops_landing_page.html#custom-ops-landing-page).
 
 
 ## Analyzing the Leaderboard Specifications
-We will submit to the `identity_py` leaderboard, which is just an identity kernel in Python. We can
+As a simple example, we will submit to the `identity_py` leaderboard, which is just an identity kernel in Python. We can
 actually view exactly what this leaderboard expects by looking at the reference code. To start, type
-`/leaderboard reference-code identity_py`. The Discord bot will send you a `.py` file with the
-following function signatures:
+`/leaderboard task leaderboard_name:identity_py`. 
 
-```python title="identity_py_reference_code.py"
-from task import input_t, output_t
+The Discord bot will send you multiple `.py` files that are used to run
+evaluations. As a user, the interesting files are `reference.py` and `task.py`. `reference.py`, listed below, shows the
+logic for generating inputs, the reference kernel, and the leaderboard-defined correctness checks:
+
+```python title="reference.py"
+from task import input_t, output_t, ...
 
 def check_implementation(
-        submission_output: output_t,
-        reference_output: output_t,
+        input: input_t,
+        custom_output: output_t,
     ) -> bool:
+    reference_output = ref_kernel(input)
     ...
+    return ...
 
 # Generate returns InputType
-def generate_input() -> input_t:
+def generate_input(..., seed: int) -> input_t:
+    gen = torch.Generator(device='cuda')
+    gen.manual_seed(seed)
     ...
+    return ...
 
-def ref_kernel(data: input_t) -> output_t:
-    return data
+def ref_kernel(input: input_t) -> output_t:
+    ...
+    return ...
 ```
 You can read through the exact implementation details if you'd like as the file is quite small. To
 better understand how to write a kernel on this leaderboard, it is useful to first understand how we evaluate user submitted kernels. 
-Under the hood, the basic submission flow is as follows:
-1. The evaluation harness will call `data = generate_input() -> input_t` to produce an `input_t`
+
+
+#### Under the hood, the basic submission flow is as follows:
+1. **Data generation.** The evaluation harness will call `data = generate_input() -> input_t` to produce an `input_t`
    object. `input_t` will typically be an alias for `torch.Tensor`, but it is flexible enough to represent any type of input.
-2. The evaluation harness will take the `input_t` data and pass it through both
+2. **Reference example.** The evaluation harness will take the `input_t` data and pass it through both
    `ref_kernel(data: input_t) -> output_t` and a user-defined `custom_kernel(data: input_t) -> output_t`.
-3. The evaluation harness will check the correctness of the user-defined `custom_kernel` against the
+3. **Correctness logic.** The evaluation harness will check the correctness of the user-defined `custom_kernel` against the
    `ref_kernel` using the leaderboard-defined `check_implementation(ref_out: output_t, submission_out: output_t)`.
 
 **Remark**. The key idea here is that `input_t` and `output_t` could actually be multiple inputs (e.g. `(float, float,
 torch.Tensor)`), a batch of inputs, etc. The leaderboard creator will specify how to check for
 correctness, and you can view all of this logic for each leaderboard. In the example above,
 `input_t = output_t = torch.Tensor`, but in general you should look at `task.py` to get the alias type (you can also just look at 
-the `ref_kernel` to get an idea for the input/output types)
+the `ref_kernel` to get an idea for the input/output types); for example:
+
+```python title="task.py"
+import torch
+
+...
+
+input_t = list[torch.Tensor]
+output_t = input_t
+```
 
 ## Submission Files
 Submission files are generally flexible, but to interface easily with our evaluation scaffolding, we
@@ -58,7 +78,6 @@ from task import input_t, output_t
 
 # User kernel implementation.
 def custom_kernel(input: input_t) -> output_t:
-    # Implement me...
     return input
 ```
 
@@ -71,7 +90,7 @@ Discord, write (the `key:value` parameters are named parameters that can be fill
 </center>
 
 where you can select `{submission.py}` from your file directory. Here, we are submitting to the
-Modal runners, but we can also replace `modal` with `github` to user the GitHub runners. From a user
+Modal runners, but we can also replace `modal` with `github` to use the GitHub runners. From a user
 perspective, the only difference is what hardware is available on either runner. After submitting
 the command, you should see the following UI pop up:
 
@@ -81,9 +100,9 @@ the command, you should see the following UI pop up:
 
 This UI contains a dropdown menu where you can select which GPUs to submit your kernel to. You can
 select as many GPUs as you want, and they will each be a part of a different leaderboard. For this
-example, select the `T4` GPU, and click anywhere outside the UI. The Discord bot will now create a
-thread where you will be able to see if your submission passes / fails, and the runtime (if it
-passes all evaluation checks).
+example, select the `T4` GPU, and click anywhere outside the UI. The Discord bot will now create two threads
+(one private and one leaderboard submission) where you will be able to see if your submission passes / fails, 
+and the runtime (if it passes all evaluation checks).
 
 <center>![Submission result](./img/result.png)</center>
 
@@ -104,9 +123,10 @@ We provide many `/` (*"slash"*) commands to help participants understand the lea
 submitting to. None of the submission pipeline is hidden from the user, and they can access the
 entire pipeline source code from slash commands. Some examples of useful commands are:
 * `/leaderboard list` to show all active leaderboards and what devices they accept.
-* `/leaderboard show {name}` to show the rankings for a particular leaderboard.
-* `/leaderboard eval-code {language}` to show the evaluation harness for Python/CUDA leaderboards.
-* `/leaderboard reference-code {name}` to get the reference code for the leaderboard.
+* `/leaderboard submit benchmark runner:{runner} leaderboard_name:{name} script:{script}` to benchmark a code submission for a leaderboard.
+* `/leaderboard show leaderboard_name:{name}` to show the rankings for a particular leaderboard.
+* `/leaderboard show-personal leaderboard_name:{name}` to show only your submission rankings for a particular leaderboard.
+* `/leaderboard task leaderboard_name:{name}` to show the evaluation harness for Python/CUDA leaderboards.
 
 More details for commands can be found in [Available Discord Commands](../available-discord-commands). 
 You are now ready to write Python kernels! Play around with other available leaderboards and try to write the fastest kernels ⚡!
