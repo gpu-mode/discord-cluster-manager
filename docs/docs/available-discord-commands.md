@@ -22,37 +22,51 @@ into three categories, which you can open in the tabs below.
         participant to select which GPUs to submit to** (multiple can be selected at once).
 
         ---
-        ### `/leaderboard submit modal {leaderboard_name} {script}`
-        **Description:** Submit a file to a leaderboard on the Modal runners, which currently allows submissions on `NVIDIA T4`,
+        ### `/leaderboard submit {script}`
+        **Description:** Submit a kernel to an official leaderboard. Depending on the leaderboard, you can
+        submit to a subset of `AMD MI300`, `NVIDIA T4`,
         `NVIDIA L4`, `NVIDIA A100`, and `NVIDIA H100` GPUs.
 
         **Arguments:**
-        - `leaderboard_name` *(required)*: Name of the leaderboard to submit to.
         - `script` *(required)*: Script to be submitted. Note, a Python leaderboard expects a Python
         submission file, and a CUDA leaderboard expects a CUDA submission file.
+        - `leaderboard_name` *(optional)*: Name of the leaderboard to submit to - If specified in the submission
+        heading with `!POPCORN leaderboard {name}`, this is not required.
+        - `gpu` *(optional)*: Specify a GPU to submit to. If not specified, the bot will prompt the participant
+        to select GPU(s) to submit to.
 
         ---
-
-        ### `/leaderboard submit github {leaderboard_name} {script}`
-        **Description:** Submit a file to a leaderboard on the GitHub runners, which currently allow submissions on `NVIDIA T4`
-        and `AMD` GPUs.
+        ### `/leaderboard submit test {script}`
+        **Description:** Check the functional correctness of a kernel on a specific leaderboard. 
+        Does not make an official submission!
+        Depending on the leaderboard, you can
+        submit to a subset of `AMD MI300`, `NVIDIA T4`,
+        `NVIDIA L4`, `NVIDIA A100`, and `NVIDIA H100` GPUs.
 
         **Arguments:**
-        - `leaderboard_name` *(required)*: Name of the leaderboard to submit to.
         - `script` *(required)*: Script to be submitted. Note, a Python leaderboard expects a Python
         submission file, and a CUDA leaderboard expects a CUDA submission file.
+        - `leaderboard_name` *(optional)*: Name of the leaderboard to submit to - If specified in the submission
+        heading with `!POPCORN leaderboard {name}`, this is not required.
+        - `gpu` *(optional)*: Specify a GPU to submit to. If not specified, the bot will prompt the participant
+        to select GPU(s) to submit to.
 
         ---
-        ### `/leaderboard submit benchmark {runner} {leaderboard_name} {script}`
-        **Description:** Submit a file to a leaderboard on the GitHub / Modal runners, purely for benchmarking
-        purposes (it does not make an official submission to a leaderboard). This command is useful for debugging, 
-        and provides useful compiler / execution feedback, as well as runtime numbers.
+        ### `/leaderboard submit benchmark {script}`
+        **Description:** Benchmark the speed of a kernel on a specific leaderboard. 
+        Does not make an official submission!
+        Depending on the leaderboard, you can
+        submit to a subset of `AMD MI300`, `NVIDIA T4`,
+        `NVIDIA L4`, `NVIDIA A100`, and `NVIDIA H100` GPUs.
 
         **Arguments:**
-        - `runner` *(required)*: Either GitHub or Modal (gives access to different GPUs).
-        - `leaderboard_name` *(required)*: Name of the leaderboard to submit to.
         - `script` *(required)*: Script to be submitted. Note, a Python leaderboard expects a Python
         submission file, and a CUDA leaderboard expects a CUDA submission file.
+        - `leaderboard_name` *(optional)*: Name of the leaderboard to submit to - If specified in the submission
+        heading with `!POPCORN leaderboard {name}`, this is not required.
+        - `gpu` *(optional)*: Specify a GPU to submit to. If not specified, the bot will prompt the participant
+        to select GPU(s) to submit to.
+
 
   </TabItem>
   <TabItem value="tools" label="Useful Info Commands">

@@ -9,10 +9,15 @@ is in Python**, but participants can still submit CUDA code through [inlining CU
 a [CUDA extension / pybinding](https://pytorch.org/tutorials/advanced/custom_ops_landing_page.html#custom-ops-landing-page).
 
 
-## Analyzing the Leaderboard Specifications
+## Getting Started: How do Leaderboards Work?
 As a simple example, we will submit to the `identity_py` leaderboard, which is just an identity kernel in Python. We can
 actually view exactly what this leaderboard expects by looking at the reference code. To start, type
-`/leaderboard task leaderboard_name:identity_py`. 
+
+<center>
+```
+/leaderboard task leaderboard_name:identity_py
+```
+</center>
 
 The Discord bot will send you multiple `.py` files that are used to run
 evaluations. As a user, the interesting files are `reference.py` and `task.py`. `reference.py`, listed below, shows the
@@ -71,10 +76,13 @@ output_t = input_t
 ## Submission Files
 Submission files are generally flexible, but to interface easily with our evaluation scaffolding, we
 require submission files to **define and implement** the following function signature (**the
-function that gets called by our harness is `custom_kernel`**). For example, for submitting to the identity kernel
-leaderboard, we can submit:
+function that gets called by our harness is `custom_kernel`**).  
+* ❗ To submit to a particular Python leaderboard, write the heading `#!POPCORN leaderboard {leaderboard_name}` (you can also specify the leaderboard in the submission command).
+
+For example, for submitting to the identity kernel leaderboard `identity_py`, we can use:
 
 ```python title="submission.py"
+#!POPCORN leaderboard identity_py
 from task import input_t, output_t
 
 # User kernel implementation.
@@ -82,20 +90,30 @@ def custom_kernel(input: input_t) -> output_t:
     return input
 ```
 
-## Submitting a Basic Python Kernel to the Discord Bot
+For any leaderboard, you can also view a beginner example for getting started by typing
+
+<center>
+```
+/leaderboard template leaderboard_name:{name}
+```
+</center>
+
+You can specify a particular template from the language keyword, as shown below:
+<center>![GPU selection UI](./img/template_py.png)</center>
+
+## Submitting to the Official Ranked Leaderboard
 The last step is submitting our kernel above to the Discord bot! In the `#submissions` channel on
 Discord, write (the `key:value` parameters are named parameters that can be filled in with `value`, such as with a file):
 
 <center>
-```/leaderboard submit modal leaderboard_name:identity_py script:{submission.py}``` 
+```/leaderboard submit script:{submission.py}``` 
 </center>
 
-where you can select `{submission.py}` from your file directory. Here, we are submitting to the
-Modal runners, but we can also replace `modal` with `github` to use the GitHub runners. From a user
-perspective, the only difference is what hardware is available on either runner. After submitting
+where you can select `{submission.py}` from your file directory. If you did not include a heading for 
+a particular leaderboard, you can also explicitly write the name of the leaderboard to submit to. After submitting
 the command, you should see the following UI pop up:
 
-<center>![GPU selection UI](./img/select.png)</center>
+<center>![GPU selection UI](./img/python_ranked.png)</center>
 
 <br></br>
 
@@ -103,11 +121,27 @@ This UI contains a dropdown menu where you can select which GPUs to submit your 
 select as many GPUs as you want, and they will each be a part of a different leaderboard. For this
 example, select the `T4` GPU, and click anywhere outside the UI. The Discord bot will now create two threads
 (one private and one leaderboard submission) where you will be able to see if your submission passes / fails, 
-and the runtime (if it passes all evaluation checks).
+and the runtime (if it passes all evaluation checks). For example, the leaderboard thread prints the following:
 
-<center>![Submission result](./img/result.png)</center>
+<center>![Submission result](./img/python_ranked_submission.png)</center>
 
 <br></br>
+
+## Debugging and Testing Kernel Submissions
+The Discord bot can also be used to debug and evaluate kernels without making an official submission to the
+leaderboard. We provide two special commands for 1) **test**ing functional kernel correctness and 2) **benchmark**ing
+kernel runtime. The same optional arguments and use of `!POPCORN leaderboard {name}` from a ranked submission also
+apply to the following commands:
+
+### To test for correctness,
+<center>
+```/leaderboard submit test script:{submission.py}``` 
+</center>
+
+### To benchmark the runtime of your kernel,
+<center>
+```/leaderboard submit benchmark script:{submission.py}``` 
+</center>
 
 ## Viewing the Leaderboard
 You can now view your ranking on the leaderboard compared to other participants. Type `/leaderboard
