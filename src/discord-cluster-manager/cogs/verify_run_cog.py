@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 import discord
 from cogs.github_cog import GitHubCog
 from cogs.modal_cog import ModalCog
+from consts import SubmissionMode
 from discord import app_commands
 from discord.ext import commands
 from task import make_task
@@ -56,11 +57,13 @@ class VerifyRunCog(commands.Cog):
             )
             task = make_task("examples/identity_cuda")
 
-        github_thread, _ = await github_command(interaction, sub_code, choice, task=task)
+        github_thread, _ = await github_command(
+            interaction, sub_code, choice, task=task, mode=SubmissionMode.TEST
+        )
 
         message_contents = [msg.content async for msg in github_thread.history(limit=None)]
 
-        required_patterns = ["Running on GitHub...", "'check': 'pass'"]
+        required_patterns = ["Running on GitHub...", "Passed 5/5 tests"]
 
         all_patterns_found = all(
             any(re.search(pattern, content, re.DOTALL) is not None for content in message_contents)
@@ -105,11 +108,13 @@ class VerifyRunCog(commands.Cog):
             )
             task = make_task("examples/identity_cuda")
 
-        modal_thread, _ = await modal_command(interaction, sub_code, t4, task=task)
+        modal_thread, _ = await modal_command(
+            interaction, sub_code, t4, task=task, mode=SubmissionMode.TEST
+        )
 
         message_contents = [msg.content async for msg in modal_thread.history(limit=None)]
 
-        required_patterns = ["Running on Modal...", "Success!"]
+        required_patterns = ["Running on Modal...", "Passed 5/5 tests"]
 
         all_patterns_found = all(
             any(re.search(pattern, content, re.DOTALL) is not None for content in message_contents)
