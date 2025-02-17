@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import List, Optional
 
@@ -13,7 +12,7 @@ from env import (
     POSTGRES_USER,
 )
 from psycopg2 import Error
-from task import LeaderboardTask, build_from_legacy_reference
+from task import LeaderboardTask
 from utils import LeaderboardItem, LRUCache, SubmissionItem
 
 leaderboard_name_cache = LRUCache(max_size=512)
@@ -59,9 +58,9 @@ class LeaderboardDB:
         """Establish connection to the database"""
         try:
             self.connection = (
-                psycopg2.connect(DATABASE_URL)
+                psycopg2.connect(DATABASE_URL, sslmode="require")
                 if DATABASE_URL
-                else psycopg2.connect(**self.connection_params, sslmode="require")
+                else psycopg2.connect(**self.connection_params)
             )
             self.cursor = self.connection.cursor()
             return True
@@ -231,13 +230,7 @@ class LeaderboardDB:
         res = self.cursor.fetchone()
 
         if res:
-            # TODO: This is just a clutch to keep compatibility with old leaderboards
-            try:
-                task = LeaderboardTask.from_dict(res[3])
-            except json.JSONDecodeError:
-                logging.error("json decoding error in LB %s. Legacy task?", leaderboard_name)
-                task = build_from_legacy_reference(res[3])
-
+            task = LeaderboardTask.from_dict(res[3])
             return LeaderboardItem(
                 id=res[0],
                 name=res[1],
