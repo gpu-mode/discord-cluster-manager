@@ -1,0 +1,39 @@
+name: relu-py
+
+files:
+  - {"name": "submission.py", "source": "@SUBMISSION@"}
+  - {"name": "task.py", "source": "task.py"}
+  - {"name": "utils.py", "source": "../utils.py"}
+  - {"name": "reference.py", "source": "reference.py"}
+  - {"name": "eval.py", "source": "../eval.py"}
+
+lang: py
+
+description: |
+  This problem requires implementing a custom kernel for the ReLU (Rectified Linear Unit) activation function.
+  The input and output data types are single tensors, denoted as `input_t` and `output_t`, respectively.
+  The function should perform the ReLU activation operation:  `output = max(0, input)`.
+
+config:
+  main: "eval.py"
+
+templates:
+  Python: "submission.py"
+
+tests:
+  - {"m": 64, "n": 64, "k": 64, "seed": 53124}
+  - {"m": 128, "n": 128, "k": 1, "seed": 3321}
+  - {"m": 256, "n": 1, "k": 128, "seed": 1200}
+  - {"m": 32, "n": 512, "k": 1, "seed": 32523}
+  - {"m": 64, "n": 1, "k": 1024, "seed": 4327}
+  - {"m": 32, "n": 32, "k": 32, "seed": 9876} # Added a test case
+  - {"m": 1, "n": 1024, "k": 1, "seed": 5432} # Added a test case
+
+benchmarks:
+  - {"m": 128, "n": 128, "k": 128, "seed": 43214}
+  - {"m": 256, "n": 256, "k": 256, "seed": 423011}
+  - {"m": 512, "n": 512, "k": 512, "seed": 123456}
+  - {"m": 1024, "n": 1024, "k": 1, "seed": 1029}
+  - {"m": 2048, "n": 1, "k": 2048, "seed": 75342}
+  - {"m": 1024, "n": 1024, "k": 1024, "seed": 8647} # Added a benchmark case
+  - {"m": 2048, "n": 2048, "k": 1, "seed": 9753} # Added a benchmark case
