@@ -75,11 +75,13 @@ async def run_submission(
     await simple_rate_limit()
 
     submission_mode = SubmissionMode(submission_mode.lower())
+    if submission_mode in [SubmissionMode.PROFILE.value]:
+        raise HTTPException(status_code=400, detail="Profile submissions are not supported yet")
+
     if submission_mode not in [
         SubmissionMode.TEST.value,
         SubmissionMode.BENCHMARK.value,
         SubmissionMode.SCRIPT.value,
-        SubmissionMode.PROFILE.value,
     ]:
         raise HTTPException(status_code=400, detail="Invalid submission mode")
 
