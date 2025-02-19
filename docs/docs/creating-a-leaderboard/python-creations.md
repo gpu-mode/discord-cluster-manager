@@ -79,7 +79,7 @@ Other than `task.yml`, the `files` key controls the list of files that the evalu
 creator has to include all of these files, but we provide examples to make it a lot easier. The
 `name` key is how this file is imported locally, and the `source` key is the name of the actual file in the folder.
 
-* `submission.py`: This is a special key-value pair that denotes the user submitted kernel (it **should not exist** in the `.zip`).
+* `submission.py`: This is a special key-value pair (denoted by `@SUBMISSION@` value) that denotes the user submitted kernel (it **should not exist** in the `.zip`).
 * `task.py` ⭐: Specifies constants and the input / output type (e.g. arguments) that the leaderboard kernel should expect.
 * `utils.py`: Some extra utils that can be used for leaderboard logic.
 * `reference.py` ⭐: Leaderboard-specific logic for generating input data, the reference kernel, and correctness

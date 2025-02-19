@@ -106,7 +106,7 @@ The last step is submitting our kernel above to the Discord bot! In the `#submis
 Discord, write (the `key:value` parameters are named parameters that can be filled in with `value`, such as with a file):
 
 <center>
-```/leaderboard submit script:{submission.py}``` 
+```/leaderboard submit ranked script:{submission.py}``` 
 </center>
 
 where you can select `{submission.py}` from your file directory. If you did not include a heading for 
@@ -130,7 +130,7 @@ and the runtime (if it passes all evaluation checks). For example, the leaderboa
 ## Debugging and Testing Kernel Submissions
 The Discord bot can also be used to debug and evaluate kernels without making an official submission to the
 leaderboard. We provide two special commands for 1) **test**ing functional kernel correctness and 2) **benchmark**ing
-kernel runtime. The same optional arguments and use of `!POPCORN leaderboard {name}` from a ranked submission also
+kernel runtime. The same optional arguments and use of `!POPCORN leaderboard {name}` heading from a ranked submission also
 apply to the following commands:
 
 ### To test for correctness,
@@ -158,7 +158,7 @@ We provide many `/` (*"slash"*) commands to help participants understand the lea
 submitting to. None of the submission pipeline is hidden from the user, and they can access the
 entire pipeline source code from slash commands. Some examples of useful commands are:
 * `/leaderboard list` to show all active leaderboards and what devices they accept.
-* `/leaderboard submit benchmark runner:{runner} leaderboard_name:{name} script:{script}` to benchmark a code submission for a leaderboard.
+* `/leaderboard submit benchmark gpu:{gpu} leaderboard_name:{name} script:{script}` to benchmark a code submission for a leaderboard.
 * `/leaderboard show leaderboard_name:{name}` to show the rankings for a particular leaderboard.
 * `/leaderboard show-personal leaderboard_name:{name}` to show only your submission rankings for a particular leaderboard.
 * `/leaderboard task leaderboard_name:{name}` to show the evaluation harness for Python/CUDA leaderboards.

@@ -57,7 +57,7 @@ Under the hood, the basic submission flow is as follows:
 **Remark.** The key idea here is that `input_t` and `output_t` could actually be multiple inputs (e.g. `(float, float,
 torch.Tensor)`), a batch of inputs, etc. The leaderboard creator will specify how to check for
 correctness, and you can view all of this logic for each leaderboard. In the example above,
-`input_t = output_t = array<vector<float>, 10>`, but int general you should look at `task.h` to get the alias type (you can also
+`input_t = output_t = array<vector<float>, 10>`, but in general you should look at `task.h` to get the alias type (you can also
 just look at the `ref_kernel` to get an idea for the input/output types); for example:
 
 ```cpp title="task.h
@@ -83,6 +83,7 @@ function that gets called by our harness is `custom_kernel`**).
 
 For example, for submitting to the identity kernel leaderboard `identity_cuda`, we can use:
 ```cpp title="submission.cu"
+//!POPCORN leaderboard identity_cuda
 #include <array>
 #include <vector>
 
@@ -115,7 +116,7 @@ The last step is submitting our kernel above to the Discord bot! In the `#submis
 Discord, write (the `key:value` parameters are named parameters that can be filled in with `value`, such as with a file):
 
 <center>
-```/leaderboard submit script:{submission.cu}``` 
+```/leaderboard submit ranked script:{submission.cu}``` 
 </center>
 
 where you can select `{submission.cu}` from your file directory. If you did not include a heading for 
@@ -139,7 +140,7 @@ and the runtime (if it passes all evaluation checks). For example, the leaderboa
 ## Debugging and Testing Kernel Submissions
 The Discord bot can also be used to debug and evaluate kernels without making an official submission to the
 leaderboard. We provide two special commands for 1) **test**ing functional kernel correctness and 2) **benchmark**ing
-kernel runtime. The same optional arguments and use of `!POPCORN leaderboard {name}` from a ranked submission also
+kernel runtime. The same optional arguments and use of `!POPCORN leaderboard {name}` heading from a ranked submission also
 apply to the following commands:
 
 ### To test for correctness,

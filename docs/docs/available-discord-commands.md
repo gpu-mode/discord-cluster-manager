@@ -22,7 +22,7 @@ into three categories, which you can open in the tabs below.
         participant to select which GPUs to submit to** (multiple can be selected at once).
 
         ---
-        ### `/leaderboard submit {script}`
+        ### `/leaderboard submit ranked {script}`
         **Description:** Submit a kernel to an official leaderboard. Depending on the leaderboard, you can
         submit to a subset of `AMD MI300`, `NVIDIA T4`,
         `NVIDIA L4`, `NVIDIA A100`, and `NVIDIA H100` GPUs.
