@@ -216,8 +216,13 @@ class VerifyRunCog(commands.Cog):
         await send_discord_message(interaction, report)
 
     async def verify_submission(  # noqa: C901
-        self, interaction: discord.Interaction, lb_name: str, sub: Path, mode: SubmissionMode
-
+        self,
+        interaction: discord.Interaction,
+        lb_name: str,
+        sub: Path,
+        mode: SubmissionMode,
+        reports: list[str],
+    ):
         lb_cog = LeaderboardSubmitCog(self.bot)
         script = create_mock_attachment(sub.name, sub.read_text())
         sub_id = await lb_cog.on_submit_hook(interaction, lb_name, script, mode, cmd_gpus=["T4"])
