@@ -192,7 +192,7 @@ class VerifyRunCog(commands.Cog):
 
         await send_discord_message(interaction, "Done")
 
-    async def verify_submission(
+    async def verify_submission(  # noqa: C901
         self, interaction: discord.Interaction, lb_name: str, sub: Path, mode: SubmissionMode
     ):
         lb_cog = LeaderboardSubmitCog(self.bot)
