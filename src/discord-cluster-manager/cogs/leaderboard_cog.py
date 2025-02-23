@@ -799,7 +799,7 @@ class LeaderboardCog(commands.Cog):
                 )
                 await send_discord_message(
                     interaction,
-                    f"Leaderboard `{leaderboard_name}` does not have a template for language `{lang}`.\n"  # noqa: E501
+                    f"Leaderboard `{leaderboard_name}` does not have a template for `{lang}`.\n"  # noqa: E501
                     f"Choose one of:\n{langs}",
                     ephemeral=True,
                 )
