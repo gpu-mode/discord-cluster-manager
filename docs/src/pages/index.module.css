@@ -99,10 +99,6 @@
   margin-bottom: 1rem;
   padding-bottom: 0.5rem;
   border-bottom: 2px solid var(--ifm-color-emphasis-200);
-  background: linear-gradient(90deg, #ff6b00, #ff8533);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  font-weight: 600;
 }
 
 .problemsContainer {
@@ -146,12 +142,12 @@
 
 .submission {
   padding: 1rem 1.5rem;
-  font-size: 1.1rem;
+  font-size: 1rem;
   display: flex;
   align-items: center;
   transition: all 0.2s ease;
   border-bottom: 1px solid var(--ifm-color-emphasis-200);
-  color: black;
+  color: var(--ifm-font-color-base);
 }
 
 .submission:last-child {
@@ -161,12 +157,6 @@
 .submission:hover {
   background: var(--ifm-color-emphasis-100);
   transform: translateX(4px);
-}
-
-.submission span:last-child {
-  font-weight: 700;
-  font-size: 1.1rem;
-  color: black;
 }
 
 .first {
@@ -187,16 +177,16 @@
   color: #CD7F32;
 }
 
-.first span:last-child {
-  color: #FFB800;
+.first:hover {
+  background: linear-gradient(90deg, rgba(255, 215, 0, 0.2), rgba(255, 215, 0, 0.1));
 }
 
-.second span:last-child {
-  color: #A7A7A7;
+.second:hover {
+  background: linear-gradient(90deg, rgba(192, 192, 192, 0.2), rgba(192, 192, 192, 0.1));
 }
 
-.third span:last-child {
-  color: #CD7F32;
+.third:hover {
+  background: linear-gradient(90deg, rgba(205, 127, 50, 0.2), rgba(205, 127, 50, 0.1));
 }
 
 .paginationControls {
@@ -210,12 +200,12 @@
 .pageButton {
   padding: 0.75rem 1.5rem;
   border-radius: 12px;
-  background: linear-gradient(135deg, #ff6b00, #ff8533);
+  background: linear-gradient(135deg, var(--ifm-color-primary), var(--ifm-color-primary-dark));
   color: white;
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s ease;
-  box-shadow: 0 2px 4px rgba(255, 107, 0, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   border: none;
   font-size: 0.9rem;
   letter-spacing: 0.5px;
@@ -223,13 +213,11 @@
 
 .pageButton:hover:not(:disabled) {
   transform: translateY(-2px);
-  background: linear-gradient(135deg, #ff8533, #ff6b00);
-  box-shadow: 0 4px 8px rgba(255, 107, 0, 0.3);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
 }
 
 .pageButton:disabled {
-  background: linear-gradient(135deg, #ffcca6, #ffd5b8);
-  color: white;
+  background: linear-gradient(135deg, var(--ifm-color-emphasis-300), var(--ifm-color-emphasis-400));
   opacity: 0.7;
   cursor: not-allowed;
   transform: none;
@@ -282,28 +270,28 @@
 }
 
 .first {
-  border-left: 4px solid var(--ifm-color-info);
+  border-left: 4px solid #FFD700; /* Gold */
 }
 
 .second {
-  border-left: 4px solid var(--ifm-color-info);
+  border-left: 4px solid #C0C0C0; /* Silver */
 }
 
 .third {
-  border-left: 4px solid var(--ifm-color-warning);
+  border-left: 4px solid #CD7F32; /* Bronze */
 }
 
 .leaderboardHeader {
   text-align: center;
-  margin-bottom: 0;
-  padding: 2rem 0 0;
+  margin-bottom: 3rem;
+  padding: 2rem 0;
 }
 
 .leaderboardHeader h2 {
   font-size: 3.5rem;
   font-weight: 800;
   margin-bottom: 0.5rem;
-  color: black;
-  text-shadow: none;
+  color: #ff6b00;
+  text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;
   letter-spacing: -0.5px;
 }
