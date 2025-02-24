@@ -270,15 +270,15 @@
 }
 
 .first {
-  border-left: 4px solid #FFD700; /* Gold */
+  border-left: 4px solid #09ff53; /* Gold */
 }
 
 .second {
-  border-left: 4px solid #C0C0C0; /* Silver */
+  border-left: 4px solid #14ddfc; /* Silver */
 }
 
 .third {
-  border-left: 4px solid #CD7F32; /* Bronze */
+  border-left: 4px solid #e91e1b; /* Bronze */
 }
 
 .leaderboardHeader {
