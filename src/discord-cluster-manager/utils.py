@@ -293,3 +293,42 @@ def build_task_config(
                 "benchmark_timeout": task.benchmark_timeout,
                 "ranked_timeout": task.ranked_timeout,
             }
+
+
+def format_time(value: float | str, err: Optional[float | str] = None, scale=None):  # noqa: C901
+    # really ugly, but works for now
+    value = float(value)
+
+    scale = 1  # nanoseconds
+    unit = "ns"
+    if value > 2_000_000:
+        scale = 1000_000
+        unit = "ms"
+    elif value > 2000:
+        scale = 1000
+        unit = "µs"
+
+    value /= scale
+    if err is not None:
+        err = float(err)
+        err /= scale
+    if value < 1:
+        if err:
+            return f"{value} ± {err} {unit}"
+        else:
+            return f"{value} {unit}"
+    elif value < 10:
+        if err:
+            return f"{value:.2f} ± {err:.3f} {unit}"
+        else:
+            return f"{value:.2f} {unit}"
+    elif value < 100:
+        if err:
+            return f"{value:.1f} ± {err:.2f} {unit}"
+        else:
+            return f"{value:.1f} {unit}"
+    else:
+        if err:
+            return f"{value:.0f} ± {err:.1f} {unit}"
+        else:
+            return f"{value:.0f} {unit}"
