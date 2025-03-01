@@ -424,6 +424,7 @@ class LeaderboardDB:
             # Query all if user_id (means called from show-personal)
             query = """
                 SELECT
+                    s.id,
                     s.file_name,
                     s.user_id,
                     s.submission_time,
@@ -447,6 +448,7 @@ class LeaderboardDB:
             query = """
                 WITH best_submissions AS (
                     SELECT DISTINCT ON (s.user_id)
+                        s.id as submission_id,
                         s.file_name,
                         s.user_id,
                         s.submission_time,
@@ -461,6 +463,7 @@ class LeaderboardDB:
                 )
                 SELECT
                     file_name,
+                    submission_id,
                     user_id,
                     submission_time,
                     score,
@@ -477,11 +480,12 @@ class LeaderboardDB:
             LeaderboardRankedEntry(
                 leaderboard_name=leaderboard_name,
                 submission_name=submission[0],
-                user_id=submission[1],
-                submission_time=submission[2],
-                submission_score=submission[3],
+                submission_id=submission[1],
+                user_id=submission[2],
+                submission_time=submission[3],
+                submission_score=submission[4],
                 gpu_type=gpu_name,
-                rank=submission[5],
+                rank=submission[6],
             )
             for submission in self.cursor.fetchall()
         ]

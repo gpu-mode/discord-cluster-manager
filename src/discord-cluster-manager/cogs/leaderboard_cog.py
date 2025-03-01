@@ -18,6 +18,7 @@ from ui.table import create_table
 from utils import (
     LeaderboardItem,
     SubmissionItem,
+    format_time,
     get_user_from_id,
     send_discord_message,
     setup_logging,
@@ -225,6 +226,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                     interaction,
                     "Leaderboard name specified in the command doesn't match the one "
                     f"in the submission script header. Submitting to `{leaderboard_name}`",
+                    ephemeral=True,
                 )
             else:
                 leaderboard_name = info["leaderboard"]
@@ -236,6 +238,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                 "Either supply one as an argument in the submit command, or "
                 "specify it in your submission script using the "
                 "`{#,//}!POPCORN leaderboard <leaderboard_name>` directive.",
+                ephemeral=True,
             )
             return -1
 
@@ -249,6 +252,7 @@ class LeaderboardSubmitCog(app_commands.Group):
             await send_discord_message(
                 interaction,
                 "❌ No available GPUs for Leaderboard " + f"`{leaderboard_name}`.",
+                ephemeral=True,
             )
             return -1
 
@@ -593,7 +597,7 @@ class LeaderboardCog(commands.Cog):
             {
                 "Rank": submission["rank"],
                 "User": await get_user_from_id(submission["user_id"], interaction, self.bot),
-                "Score": f"{submission['submission_score']:.9f}",
+                "Score": f"{format_time(submission['submission_score'] * 1e9)}",
                 "Submission Name": submission["submission_name"],
             }
             for submission in submissions
