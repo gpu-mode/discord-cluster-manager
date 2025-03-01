@@ -18,6 +18,7 @@ from ui.table import create_table
 from utils import (
     LeaderboardItem,
     SubmissionItem,
+    format_time,
     get_user_from_id,
     send_discord_message,
     setup_logging,
@@ -593,7 +594,7 @@ class LeaderboardCog(commands.Cog):
             {
                 "Rank": submission["rank"],
                 "User": await get_user_from_id(submission["user_id"], interaction, self.bot),
-                "Score": f"{submission['submission_score']:.9f}",
+                "Score": f"{format_time(submission['submission_score'] * 1e9)}",
                 "Submission Name": submission["submission_name"],
             }
             for submission in submissions
