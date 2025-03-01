@@ -89,15 +89,17 @@ async def get_user_from_id(id, interaction, bot):
             return id
 
 
-async def send_discord_message(interaction: discord.Interaction, msg: str, **kwargs) -> None:
+async def send_discord_message(
+    interaction: discord.Interaction, msg: str, *, ephemeral=False, **kwargs
+) -> None:
     """
     To get around response messages in slash commands that are
     called externally, send a message using the followup.
     """
     if interaction.response.is_done():
-        await interaction.followup.send(msg, **kwargs)
+        await interaction.followup.send(msg, ephemeral=ephemeral, **kwargs)
     else:
-        await interaction.response.send_message(msg, **kwargs)
+        await interaction.response.send_message(msg, ephemeral=ephemeral, **kwargs)
 
 
 async def send_logs(thread: discord.Thread, logs: str) -> None:
