@@ -148,35 +148,39 @@ async def generate_report(thread: discord.Thread, result: FullResult, mode: Subm
                     await thread.send("❌ Compilation failed")
                     return
 
+        message = ""
         if any_compile:
-            await thread.send("✅ Compilation successful")
+            message += "✅ Compilation successful\n"
 
         if "test" not in runs or not runs["test"].run.success:
-            await thread.send("❌ Running tests failed")
+            message += "❌ Running tests failed\n"
+            await thread.send(message)
             return
         elif not runs["test"].run.passed:
-            await thread.send("❌ Testing failed")
+            message += "❌ Testing failed"
+            await thread.send(message)
             return
         else:
-            await thread.send("✅ Testing successful")
+            message += "✅ Testing successful\n"
 
         if "benchmark" not in runs or not runs["benchmark"].run.success:
-            await thread.send("❌ Running benchmarks failed")
+            message += "❌ Running benchmarks failed\n"
+            await thread.send(message)
             return
         elif not runs["benchmark"].run.passed:
-            await thread.send("❌ Benchmarking failed")
+            message += "❌ Benchmarking failed\n"
+            await thread.send(message)
             return
         else:
-            await thread.send("✅ Benchmarking successful")
+            message += "✅ Benchmarking successful\n"
 
         if "leaderboard" not in runs or not runs["leaderboard"].run.success:
-            await thread.send("❌ Running leaderboard failed")
+            message += "❌ Running leaderboard failed\n"
         elif not runs["leaderboard"].run.passed:
-            await thread.send("❌ Leaderboard run failed")
-            return
+            message += "❌ Leaderboard run failed\n"
         else:
-            await thread.send("✅ Leaderboard run successful")
-            return
+            message += "✅ Leaderboard run successful\n"
+        await thread.send(message)
 
     message = ""
 
