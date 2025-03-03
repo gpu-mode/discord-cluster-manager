@@ -591,6 +591,30 @@ class LeaderboardDB:
 
         return result
 
+    def delete_submission(self, submission_id: int):
+        try:
+            # first, the runs
+            query = """
+                    DELETE FROM leaderboard.runs
+                    WHERE submission_id = %s
+                    """
+            self.cursor.execute(query, (submission_id,))
+
+            # next, the submission itself
+            query = """
+                   DELETE FROM leaderboard.submission
+                   WHERE id = %s
+                   """
+            self.cursor.execute(query, (submission_id,))
+
+            # TODO delete code file? Could be one-to-many mapping, so we'd need
+            # to figure out if it is used elsewhere first.
+            self.connection.commit()
+        except psycopg2.Error as e:
+            self.connection.rollback()
+            logger.exception("Could not delete submission %s.", submission_id, exc_info=e)
+            raise KernelBotError(f"Could not delete submission {submission_id}!") from e
+
     def get_submission_by_id(self, submission_id: int) -> Optional[SubmissionItem]:
         query = """
                 SELECT s.leaderboard_id, lb.name, s.file_name, s.user_id,
