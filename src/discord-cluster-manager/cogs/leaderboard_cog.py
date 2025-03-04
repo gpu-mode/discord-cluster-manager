@@ -1,5 +1,6 @@
 import asyncio
 from datetime import datetime
+from decimal import Decimal
 from io import StringIO
 from typing import TYPE_CHECKING, Callable, List, Optional
 
@@ -384,7 +385,7 @@ class LeaderboardSubmitCog(app_commands.Group):
             # don't leak any information, but at least acknowledge that the command failed.
             await send_discord_message(
                 interaction,
-                f"An error occurred when submitting to leaderboard " f"`{leaderboard_name}`.",
+                f"An error occurred when submitting to leaderboard `{leaderboard_name}`.",
                 ephemeral=True,
             )
             return -1
@@ -480,11 +481,11 @@ def add_header_to_template(lang: str, lb: LeaderboardItem):
         f"{comment_char} > {line}\n" for line in lb["task"].description.splitlines()
     ]
     header = f"""
-{comment_char}!POPCORN leaderboard {lb['name']}
+{comment_char}!POPCORN leaderboard {lb["name"]}
 
-{comment_char} This is a submission template for popcorn leaderboard '{lb['name']}'.
+{comment_char} This is a submission template for popcorn leaderboard '{lb["name"]}'.
 {comment_char} Your task is as follows:
-{str.join('\n', description_comment)}
+{str.join("\n", description_comment)}
 {comment_char} The deadline for this leaderboard is {lb["deadline"]}
 
 {comment_char} You can automatically route this file to specific GPUs by adding a line
@@ -597,7 +598,7 @@ class LeaderboardCog(commands.Cog):
             {
                 "Rank": submission["rank"],
                 "User": await get_user_from_id(submission["user_id"], interaction, self.bot),
-                "Score": f"{format_time(submission['submission_score'] * 1e9)}",
+                "Score": f"{format_time(submission['submission_score'] * Decimal(1e9))}",
                 "Submission Name": submission["submission_name"],
             }
             for submission in submissions
