@@ -15,7 +15,7 @@ from discord import app_commands
 from discord.ext import commands
 from leaderboard_db import leaderboard_name_autocomplete
 from task import LeaderboardTask, make_task
-from ui.misc import DeleteConfirmationModal, ConfirmationView, GPUSelectionView
+from ui.misc import ConfirmationView, DeleteConfirmationModal, GPUSelectionView
 from utils import (
     KernelBotError,
     SubmissionItem,
@@ -375,9 +375,7 @@ class AdminCog(commands.Cog):
 
     @discord.app_commands.describe(submission="ID of the submission to delete")
     @with_error_handling
-    async def delete_submission(
-        self, interaction: discord.Interaction, submission: int
-    ):
+    async def delete_submission(self, interaction: discord.Interaction, submission: int):
         is_admin = await self.admin_check(interaction)
 
         if not is_admin:
@@ -418,11 +416,15 @@ class AdminCog(commands.Cog):
                 ephemeral=True,
             )
 
-        confirm = ConfirmationView(confirm_text="Delete", confirm_callback=do_delete,
-                                   reject_text="Keep", reject_callback=no_delete)
+        confirm = ConfirmationView(
+            confirm_text="Delete",
+            confirm_callback=do_delete,
+            reject_text="Keep",
+            reject_callback=no_delete,
+        )
         await send_discord_message(
-            interaction,
-            "# Attention\nYou are about to **delete** the following submission:\n")
+            interaction, "# Attention\nYou are about to **delete** the following submission:\n"
+        )
         await send_discord_message(interaction, msg, files=files)
         await send_discord_message(
             interaction,
