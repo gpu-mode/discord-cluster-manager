@@ -10,7 +10,7 @@ from pathlib import Path
 from types import NoneType
 from typing import Optional, Protocol, Union
 
-from consts import CUDA_FLAGS, ExitCode
+from consts import CUDA_FLAGS, ExitCode, Timeout
 
 
 @dataclasses.dataclass
@@ -204,7 +204,7 @@ def compile_cuda_script(  # # noqa: C901
     )
 
 
-def run_program(args: list[str], seed: int, timeout: int = 60) -> RunResult:
+def run_program(args: list[str], seed: int, timeout: int) -> RunResult:
     print("[Running]")
     # set up a pipe so the tester can communicate its verdict with us
     env = os.environ.copy()
@@ -267,9 +267,9 @@ def run_single_evaluation(
     mode: str,
     tests: Optional[str] = None,
     benchmarks: Optional[str] = None,
-    test_timeout: int = 30,
-    benchmark_timeout: int = 60,
-    ranked_timeout: int = 90,
+    test_timeout: int = Timeout.TEST,
+    benchmark_timeout: int = Timeout.BENCHMARK,
+    ranked_timeout: int = Timeout.RANKED,
     seed: Optional[int] = 42,
 ) -> RunResult:
     """
@@ -282,11 +282,7 @@ def run_single_evaluation(
             tests_file.flush()
             return run_program(call + [mode, tests_file.name], seed=seed, timeout=test_timeout)
     elif mode in ["benchmark", "profile", "leaderboard"]:
-        timeout = {
-            "benchmark": benchmark_timeout,
-            "profile": benchmark_timeout,
-            "leaderboard": ranked_timeout,
-        }[mode]
+        timeout = ranked_timeout if mode == "leaderboard" else benchmark_timeout
         with tempfile.NamedTemporaryFile("w") as bench_file:
             bench_file.write(benchmarks)
             bench_file.flush()
@@ -476,9 +472,6 @@ def run_config(config: dict):
     common_args = {
         "tests": build_test_string(config.get("tests", [])),
         "benchmarks": build_test_string(config.get("benchmarks", [])),
-        "test_timeout": config.get("test_timeout", 30),
-        "benchmark_timeout": config.get("benchmark_timeout", 60),
-        "ranked_timeout": config.get("ranked_timeout", 30),
         "seed": 42,
     }
     if config["lang"] == "py":
