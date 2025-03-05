@@ -10,6 +10,7 @@ from pathlib import Path
 from types import NoneType
 from typing import Optional, Protocol, Union
 
+import torch
 from consts import CUDA_FLAGS, ExitCode
 
 
@@ -41,6 +42,16 @@ class RunResult:
 
 
 @dataclasses.dataclass
+class SystemInfo:
+    # fmt: off
+    gpu: str = ''           # Model name of the GPU
+    cpu: str = ''           # Model name of the CPU
+    platform: str = ''      # Platform string of the machine
+    torch: str = ''         # Torch version
+    # fmt: on
+
+
+@dataclasses.dataclass
 class EvalResult:
     # fmt: off
     start: datetime.datetime            # when did this run start (excluding container setup time)
@@ -55,6 +66,7 @@ class FullResult:
     # fmt: off
     success: bool                  # did the runner (github/modal) execute successfully
     error: str                     # if not success, an error message
+    system: SystemInfo             # specs of the system this was run on
     # results of running. There can be multiple runs in one submission, using separate
     # 'test' and 'benchmark' keys, for example
     runs: dict[str, EvalResult] = dataclasses.field(default_factory=dict)
@@ -296,6 +308,28 @@ def run_single_evaluation(
         return run_program(call, seed=seed)
 
 
+def make_system_info() -> SystemInfo:
+    info = SystemInfo()
+    # Note: cuda.is_available() also covers HiP
+    # https://pytorch.org/docs/stable/notes/hip.html
+    if torch.cuda.is_available():
+        info.gpu = torch.cuda.get_device_name()
+    try:
+        cpu_info_str = Path("/proc/cpuinfo").read_text()
+        for line in cpu_info_str.splitlines():
+            key, _, val = line.partition(":")
+            if key.strip() == "model name":
+                info.cpu = val.strip()
+    except PermissionError:
+        # nothing we can do here; we're not getting CPU info
+        pass
+    import platform
+
+    info.platform = platform.platform()
+    info.torch = torch.torch_version.internal_version
+    return info
+
+
 def run_cuda_script(  # # noqa: C901
     sources: dict[str, str],
     headers: Optional[dict[str, str]] = None,
@@ -342,7 +376,10 @@ def run_cuda_script(  # # noqa: C901
 
         if not compile_result.success:
             return EvalResult(
-                start=start, end=datetime.datetime.now(), compilation=compile_result, run=None
+                start=start,
+                end=datetime.datetime.now(),
+                compilation=compile_result,
+                run=None,
             )
 
     # cleaning up all source files _before_ we let the user code run, just in
@@ -355,7 +392,10 @@ def run_cuda_script(  # # noqa: C901
 
     run_result = run_single_evaluation(["./eval.out"], **kwargs)
     return EvalResult(
-        start=start, end=datetime.datetime.now(), compilation=compile_result, run=run_result
+        start=start,
+        end=datetime.datetime.now(),
+        compilation=compile_result,
+        run=run_result,
     )
 
 
@@ -389,26 +429,27 @@ def run_pytorch_script(  # noqa: C901
             if "-DTORCH_EXTENSION_NAME" in compile_run.stdout:
                 comp = CompileResult(
                     nvcc_found=True,
-                    nvcc_version='',
+                    nvcc_version="",
                     success=True,
                     command=compile_run.command,
                     stdout=compile_run.stdout,
                     stderr=compile_run.stderr,
-                    exit_code=compile_run.exit_code
+                    exit_code=compile_run.exit_code,
                 )
             else:
                 comp = None
         except subprocess.CalledProcessError as e:
             # This step is purely optional, so we just go on
             # if it fails
-            comp = CompileResult(nvcc_found=False,
-                                 nvcc_version='',
-                                 success=False,
-                                 command="python submission.py",
-                                 stdout=e.stdout,
-                                 stderr=e.stderr,
-                                 exit_code=e.returncode,
-                                 )
+            comp = CompileResult(
+                nvcc_found=False,
+                nvcc_version="",
+                success=False,
+                command="python submission.py",
+                stdout=e.stdout,
+                stderr=e.stderr,
+                exit_code=e.returncode,
+            )
 
         run = run_single_evaluation(["python", main], **kwargs)
 
@@ -504,4 +545,4 @@ def run_config(config: dict):
         raise ValueError(f"Invalid language {config['lang']}")
 
     results = run_evaluation(runner, config["mode"])
-    return FullResult(success=True, error="", runs=results)
+    return FullResult(success=True, error="", runs=results, system=make_system_info())
