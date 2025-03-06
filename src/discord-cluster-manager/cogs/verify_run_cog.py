@@ -261,6 +261,7 @@ class VerifyRunCog(commands.Cog):
         if report_success:
             reports.append(f"✅ {run_id:20} {mode.name} behaved as expected")
 
+
     @app_commands.command(name="verifyruns")
     async def verify_runs(self, interaction: discord.Interaction):
         """Verify runs on Modal, GitHub Nvidia, and GitHub AMD."""
