@@ -10,7 +10,6 @@ from pathlib import Path
 from types import NoneType
 from typing import Optional, Protocol, Union
 
-import torch
 from consts import CUDA_FLAGS, ExitCode, Timeout
 
 
@@ -308,10 +307,31 @@ def run_single_evaluation(
 
 def make_system_info() -> SystemInfo:
     info = SystemInfo()
-    # Note: cuda.is_available() also covers HiP
-    # https://pytorch.org/docs/stable/notes/hip.html
-    if torch.cuda.is_available():
-        info.gpu = torch.cuda.get_device_name()
+    try:
+        import torch
+
+        info.torch = torch.torch_version.internal_version
+        # Note: cuda.is_available() also covers HiP
+        # https://pytorch.org/docs/stable/notes/hip.html
+        if torch.cuda.is_available():
+            info.gpu = torch.cuda.get_device_name()
+    except ImportError:
+        # get GPU info manually
+        try:
+            info.gpu = subprocess.check_output(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], encoding="utf-8"
+            )
+        except subprocess.CalledProcessError:
+            # try again for HIP
+            # TODO suggested by Claude, untested
+            try:
+                info.gpu = subprocess.check_output(
+                    ["rocm-smi", "--showproductname"], encoding="utf-8"
+                )
+            except subprocess.CalledProcessError:
+                # OK, no GPU info available
+                pass
+
     try:
         cpu_info_str = Path("/proc/cpuinfo").read_text()
         for line in cpu_info_str.splitlines():
@@ -324,7 +344,7 @@ def make_system_info() -> SystemInfo:
     import platform
 
     info.platform = platform.platform()
-    info.torch = torch.torch_version.internal_version
+
     return info
 
 
