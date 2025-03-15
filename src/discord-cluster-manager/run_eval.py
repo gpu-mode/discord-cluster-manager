@@ -334,10 +334,17 @@ def make_system_info() -> SystemInfo:
 
     try:
         cpu_info_str = Path("/proc/cpuinfo").read_text()
+        cpu_info_dict = {}
         for line in cpu_info_str.splitlines():
             key, _, val = line.partition(":")
-            if key.strip() == "model name":
-                info.cpu = val.strip()
+            cpu_info_dict[key.strip()] = val.strip()
+        info.cpu = cpu_info_dict.get("model name", "")
+        # on modal, we don't get to know the exact CPU model
+        # make due with the vendor in that case
+        if info.cpu == "unknown":
+            # ¯\_(ツ)_/¯
+            info.cpu = cpu_info_dict.get("vendor_id", "")
+
     except PermissionError:
         # nothing we can do here; we're not getting CPU info
         pass
