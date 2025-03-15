@@ -192,6 +192,7 @@ class LeaderboardItem(TypedDict):
 
 
 class LeaderboardRankedEntry(TypedDict):
+    submission_id: int
     rank: int
     submission_id: int
     submission_name: str
@@ -199,6 +200,7 @@ class LeaderboardRankedEntry(TypedDict):
     submission_score: float
     leaderboard_name: str
     user_id: int
+    user_name: str
     gpu_type: str
 
 
