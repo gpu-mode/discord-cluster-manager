@@ -77,6 +77,8 @@ def build_app():
             }
             raise HTTPException(status_code=500, detail=error_response) from e
 
+    return app
+
 
 def check_metadata_serializable_all_types(metadata: dict):
     """
