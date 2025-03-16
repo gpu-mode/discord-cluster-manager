@@ -1,10 +1,10 @@
-import json
 import signal
 import traceback
 from contextlib import contextmanager
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import Any, Dict
 
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 from run_eval import FullResult, SystemInfo, run_config
 
 
@@ -35,7 +35,7 @@ def local_run_config(  # noqa: C901
     config: dict,
     timeout_seconds: int = 300,
 ) -> FullResult:
-    """HTTP version of run_pytorch_script, handling timeouts"""
+    """Local version of run_pytorch_script, handling timeouts"""
     try:
         with timeout(timeout_seconds):
             return run_config(config)
@@ -56,43 +56,30 @@ def local_run_config(  # noqa: C901
         )
 
 
-class RequestHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        """Turn POST requests into runs."""
+def build_app():
+    app = FastAPI()
+
+    class ConfigRequest(BaseModel):
+        config: Dict[str, Any]
+        timeout: int = 300
+
+    @app.post("/")
+    async def _run_config(request: ConfigRequest):
         try:
-            content_length = int(self.headers.get("Content-Length", 0))
-            body = self.rfile.read(content_length)
-            data = json.loads(body)
-
-            config: Dict[str, Any] = data.get("config", {})
-            timeout: int = data.get("timeout", 300)
-
-            result = local_run_config(config, timeout)
-
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(result.__dict__).encode("utf-8"))
-
+            result = local_run_config(request.config, request.timeout)
+            return result.__dict__
         except Exception as e:
             error_response = {
                 "success": False,
                 "error": f"Server Error: {str(e)}",
                 "traceback": traceback.format_exc(),
             }
-            self.send_response(500)
-            self.send_header("Content-Type", "application/json")
-            self.end_headers()
-            self.wfile.write(json.dumps(error_response).encode("utf-8"))
-
-
-def run_server(host="0.0.0.0", port=33001):
-    """Start the HTTP server."""
-    server_address = (host, port)
-    httpd = HTTPServer(server_address, RequestHandler)
-    print(f"Serving on {host}:{port}")
-    httpd.serve_forever()
+            raise HTTPException(status_code=500, detail=error_response) from e
 
 
 if __name__ == "__main__":
-    run_server()
+    import uvicorn
+
+    app = build_app()
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
