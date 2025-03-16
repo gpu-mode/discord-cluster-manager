@@ -68,7 +68,7 @@ def build_app():
     async def _run_config(request: ConfigRequest):
         try:
             result = local_run_config(request.config, request.timeout)
-            return check_metadata_serializable_all_types(result)
+            return result.__dict__
         except Exception as e:
             error_response = {
                 "success": False,
