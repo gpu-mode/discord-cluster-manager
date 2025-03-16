@@ -15,7 +15,7 @@ for gpu in gpus:
 
 
 @app.function(
-    image=modal.Image.debian_slim().pip_install("requests"), concurrency_limit=1, timeout=600
+    image=modal.Image.debian_slim().pip_install("requests"), max_containers=1, timeout=600
 )
 def run_pytorch_script_b200(config: dict, timeout: int):
     """Send a config and timeout to the server and return the response."""
@@ -29,7 +29,7 @@ def run_pytorch_script_b200(config: dict, timeout: int):
     try:
         response = requests.post(f"http://{ip_addr}:{port}", json=payload, timeout=timeout + 5)
         response.raise_for_status()
-        return response.json()  # Parse and return JSON response
+        return response.json()
     except requests.RequestException as e:
         return {"success": False, "error": str(e)}
 
