@@ -1,3 +1,4 @@
+import json
 import signal
 import traceback
 from contextlib import contextmanager
@@ -67,7 +68,7 @@ def build_app():
     async def _run_config(request: ConfigRequest):
         try:
             result = local_run_config(request.config, request.timeout)
-            return result.__dict__
+            return check_metadata_serializable_all_types(result)
         except Exception as e:
             error_response = {
                 "success": False,
@@ -75,6 +76,33 @@ def build_app():
                 "traceback": traceback.format_exc(),
             }
             raise HTTPException(status_code=500, detail=error_response) from e
+
+
+def check_metadata_serializable_all_types(metadata: dict):
+    """
+    Ensure metadata is JSON serializable,
+    if not, convert non-serializable values to strings recursively
+    """
+
+    def convert_to_serializable(obj):
+        if isinstance(obj, dict):
+            return {k: convert_to_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [convert_to_serializable(v) for v in obj]
+        elif isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+        else:
+            return str(obj)
+
+    try:
+        json.dumps(metadata)
+        return metadata
+    except (TypeError, OverflowError) as e:
+        print(f"[WARNING] Metadata is not JSON serializable, error: {str(e)}")
+        # Convert non-serializable values to strings recursively
+        converted_metadata = convert_to_serializable(metadata)
+        print(f"[WARNING] Metadata now converted to be JSON serializable: {converted_metadata}")
+        return converted_metadata
 
 
 if __name__ == "__main__":
