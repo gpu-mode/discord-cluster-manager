@@ -53,7 +53,7 @@ class SubmitCog(commands.Cog):
     method to translate the selected GPU to an architecture argument for Cuda,
     and a
     ```
-    run_submission(self, config: dict, gpu_type: GPUType,
+    _run_submission(self, config: dict, gpu_type: GPUType,
         status: ProgressReporter) -> FullResult
     ```
     coroutine, which handles the actual submission.
@@ -91,26 +91,84 @@ class SubmitCog(commands.Cog):
                 name=self.name.lower(), description=f"Run a script using {self.name}"
             )(run)
 
-    async def submit_leaderboard(
+    async def submit_leaderboard_single(
         self,
         interaction: discord.Interaction,
+        leaderboard_name: str,
         script: discord.Attachment,
-        gpu_type: app_commands.Choice[str],
         task: LeaderboardTask,
+        gpu: app_commands.Choice[str],
         mode: SubmissionMode,
-    ) -> Tuple[Optional[discord.Thread], Optional[FullResult]]:
+        submission_id: int,
+    ):
         """
-        Function invoked by `leaderboard_cog` to handle a leaderboard run.
+        Handle a single leaderboard submission, i.e., one code submitted with one mode
+        to one runner.
         """
-        thread, result = await self._handle_submission(
-            interaction,
-            gpu_type,
-            script=script,
+        script_content = await self._validate_input_file(interaction, script)
+        if script_content is None:
+            return None, None
+
+        thread_name = f"{self.name} - {mode} {leaderboard_name}"
+        thread = await self.bot.create_thread(interaction, gpu.name, f"{thread_name}")
+
+        result = await self._handle_submission(
+            thread,
+            gpu,
+            script_content=script_content,
+            script_name=script.filename,
             task=task,
             mode=mode,
         )
 
-        return thread, result
+        try:
+            if result.success:
+                user_id = (
+                    interaction.user.global_name
+                    if interaction.user.nick is None
+                    else interaction.user.nick
+                )
+
+                score = None
+                if "leaderboard" in result.runs and result.runs["leaderboard"].run.success:
+                    score = 0.0
+                    num_benchmarks = int(result.runs["leaderboard"].run.result["benchmark-count"])
+                    for i in range(num_benchmarks):
+                        score += (
+                            float(result.runs["leaderboard"].run.result[f"benchmark.{i}.mean"])
+                            / 1e9
+                        )
+                    score /= num_benchmarks
+
+                with self.bot.leaderboard_db as db:
+                    for key, value in result.runs.items():
+                        db.create_submission_run(
+                            submission_id,
+                            value.start,
+                            value.end,
+                            mode=key,
+                            runner=gpu.name,
+                            score=None if key != "leaderboard" else score,
+                            secret=mode == SubmissionMode.PRIVATE,
+                            compilation=value.compilation,
+                            result=value.run,
+                            system=result.system,
+                        )
+
+                if score is not None:
+                    await thread.send(
+                        "## Result:\n"
+                        + f"Leaderboard `{leaderboard_name}`:\n"
+                        + f"> **{user_id}**'s `{script.filename}` on `{gpu.name}` ran "
+                        + f"for `{score:.9f}` seconds!",
+                    )
+        except Exception as e:
+            logger.error("Error in leaderboard submission", exc_info=e)
+            await thread.send(
+                "## Result:\n"
+                + f"Leaderboard submission to '{leaderboard_name}' on {gpu.name} "
+                + f"using {self.name} runners failed!\n",
+            )
 
     @with_error_handling
     async def run_script(
@@ -122,44 +180,45 @@ class SubmitCog(commands.Cog):
         """
         Function invoked by the `run` command to run a single script.
         """
+        script_content = await self._validate_input_file(interaction, script)
+        if script_content is None:
+            return
+
+        thread_name = f"{self.name} - Script Job"
+        thread = await self.bot.create_thread(interaction, gpu_type.name, f"{thread_name}")
+
         await self._handle_submission(
-            interaction, gpu_type, script=script, task=None, mode=SubmissionMode.SCRIPT
+            thread,
+            gpu_type,
+            script_content=script_content,
+            script_name=script.filename,
+            task=None,
+            mode=SubmissionMode.SCRIPT,
         )
 
     async def _handle_submission(
         self,
-        interaction: discord.Interaction,
+        thread: discord.Thread,
         gpu_type: app_commands.Choice[str],
-        script: discord.Attachment,
+        script_content: str,
+        script_name: str,
         task: Optional[LeaderboardTask],
         mode: SubmissionMode,
-    ) -> Tuple[Optional[discord.Thread], Optional[FullResult]]:
+    ) -> FullResult:
         """
         Generic function to handle code submissions.
         Args:
-            interaction: Interaction that started this command.
+            thread: Thread in which to report results
             gpu_type: Which GPU to run on.
-            script: File that contains the submitted script.
+            script_content: Submitted source code
+            script_name: (File) name of the submission
             task: Task specification, of provided
 
         Returns:
-            if successful, returns the created discord thread, and the result of
-            the run.
+            the result of the run.
         """
-        thread_name = f"{self.name} - {mode.value.capitalize()} Job"
-
-        script_content = await self._validate_input_file(interaction, script)
-        if script_content is None:
-            return None, None
-
-        # TODO figure out the correct way to handle messaging here
-        thread = await self.bot.create_thread(interaction, gpu_type.name, f"{thread_name}")
-        await thread.send(
-            f"Starting {mode.value.capitalize()} job on {self.name} for "
-            f"`{script.filename}` with {gpu_type.name}..."
-        )
-
-        status = await ProgressReporter.make_reporter(thread, f"Running on {self.name}...")
+        run_msg = f"Running {mode.value.capitalize()} job for `{script_name}` on {self.name} with {gpu_type.name}"
+        status = await ProgressReporter.make_reporter(thread, f"{run_msg}...")
 
         config = build_task_config(
             task=task, submission_content=script_content, arch=self._get_arch(gpu_type), mode=mode
@@ -168,14 +227,21 @@ class SubmitCog(commands.Cog):
         logger.info("submitting task to runner %s", self.name)
 
         result = await self._run_submission(config, gpu_type, status)
-        await status.update_header(f"Running on {self.name}... ✅ success")
+
+        if not result.success:
+            await status.update_header(f"{run_msg}... ✅ failure")
+            await status.push(result.error)
+            return result
+        else:
+            await status.update_header(f"{run_msg}... ✅ success")
+
         try:
-            await generate_report(thread, result, mode=mode)
+            await generate_report(thread, result.runs, mode=mode)
         except Exception as E:
             logger.error("Error generating report. Result: %s", result, exc_info=E)
             raise
 
-        return thread, result
+        return result
 
     async def _validate_input_file(
         self,
