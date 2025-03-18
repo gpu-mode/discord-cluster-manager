@@ -217,6 +217,7 @@ class RunItem(TypedDict):
 
 
 class SubmissionItem(TypedDict):
+    submission_id: int
     leaderboard_id: int
     leaderboard_name: str
     file_name: str
