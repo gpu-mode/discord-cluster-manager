@@ -18,6 +18,7 @@ from task import LeaderboardTask, make_task
 from ui.misc import ConfirmationView, DeleteConfirmationModal, GPUSelectionView
 from utils import (
     KernelBotError,
+    LeaderboardItem,
     SubmissionItem,
     send_discord_message,
     setup_logging,
@@ -115,6 +116,10 @@ class AdminCog(commands.Cog):
             name="update-user-names", description="Update user names"
         )(self.update_user_names)
 
+        self.set_forum_ids = bot.admin_group.command(
+            name="set-forum-ids", description="Sets forum IDs"
+        )(self.set_forum_ids)
+
     # --------------------------------------------------------------------------
     # |                           HELPER FUNCTIONS                              |
     # --------------------------------------------------------------------------
@@ -172,13 +177,32 @@ class AdminCog(commands.Cog):
 
         # create-local overwrites existing leaderboard
         with self.bot.leaderboard_db as db:
+            old_lb = db.get_leaderboard(leaderboard_name)
             db.delete_leaderboard(leaderboard_name, force=True)
+
+        # get existing forum thread or create new one
+        forum_channel = self.bot.get_channel(self.bot.leaderboard_forum_id)
+        forum_thread = None
+        if old_lb:
+            forum_id = old_lb["forum_id"]
+            forum_thread = await self.bot.fetch_channel(forum_id)
+
+        if forum_thread is None:
+            forum_thread = await forum_channel.create_thread(
+                name=leaderboard_name,
+                content=f"# Test Leaderboard: {leaderboard_name}\n\n",
+                auto_archive_duration=10080,  # 7 days
+            )
+            forum_id = forum_thread.thread.id
+        else:
+            await forum_thread.send("Leaderboard was updated")
 
         if await self.create_leaderboard_in_db(
             interaction,
             leaderboard_name,
             datetime.now(timezone.utc) + timedelta(days=365),
             task=task,
+            forum_id=forum_id,
             gpu=gpu.value if gpu else None,
         ):
             await send_discord_message(
@@ -197,6 +221,16 @@ class AdminCog(commands.Cog):
                 logger.error(f"Value Error: {str(ve)}", exc_info=True)
         return None
 
+    def _leaderboard_opening_message(
+        self, leaderboard_name: str, deadline: datetime, description: str
+    ):
+        return f"""
+        # New Leaderboard: {leaderboard_name}\n
+        **Deadline**: {deadline.strftime('%Y-%m-%d %H:%M')}\n
+        {description}\n
+        Submit your entries using `/leaderboard submit ranked` in the submissions channel.\n
+        Good luck to all participants! 🚀 <@&{self.bot.leaderboard_participant_role_id}>"""
+
     async def leaderboard_create_impl(  # noqa: C901
         self,
         interaction: discord.Interaction,
@@ -205,7 +239,6 @@ class AdminCog(commands.Cog):
         task: LeaderboardTask,
         gpus: Optional[str | list[str]],
     ):
-        thread = None
         if len(leaderboard_name) > 95:
             await send_discord_message(
                 interaction,
@@ -230,38 +263,30 @@ class AdminCog(commands.Cog):
             )
             return
 
+        forum_channel = self.bot.get_channel(self.bot.leaderboard_forum_id)
+        forum_thread = None
         try:
+            forum_thread = await forum_channel.create_thread(
+                name=leaderboard_name,
+                content=self._leaderboard_opening_message(
+                    leaderboard_name, date_value, task.description
+                ),
+                auto_archive_duration=10080,  # 7 days
+            )
+
             success = await self.create_leaderboard_in_db(
-                interaction, leaderboard_name, date_value, task, gpus
+                interaction, leaderboard_name, date_value, task, forum_thread.thread.id, gpus
             )
             if not success:
+                await forum_thread.delete()
                 return
 
-            forum_channel = self.bot.get_channel(self.bot.leaderboard_forum_id)
-
-            existing_threads = [
-                thread for thread in forum_channel.threads if thread.name == leaderboard_name
-            ]
-
-            if not existing_threads:
-                thread = await forum_channel.create_thread(
-                    name=leaderboard_name,
-                    content=(
-                        f"# New Leaderboard: {leaderboard_name}\n\n"
-                        f"**Deadline**: {date_value.strftime('%Y-%m-%d %H:%M')}\n\n"
-                        f"{task.description}\n\n"
-                        "Submit your entries using `/leaderboard submit ranked` in the submissions channel.\n\n"  # noqa: E501
-                        f"Good luck to all participants! 🚀 <@&{self.bot.leaderboard_participant_role_id}>"  # noqa: E501
-                    ),
-                    auto_archive_duration=10080,  # 7 days
-                )
-
-                await send_discord_message(
-                    interaction,
-                    f"Leaderboard '{leaderboard_name}'.\n"
-                    + f"Submission deadline: {date_value}"
-                    + f"\nForum thread: {thread.thread.mention}",
-                )
+            await send_discord_message(
+                interaction,
+                f"Leaderboard '{leaderboard_name}'.\n"
+                + f"Submission deadline: {date_value}"
+                + f"\nForum thread: {forum_thread.thread.mention}",
+            )
             return
 
         except discord.Forbidden:
@@ -285,8 +310,8 @@ class AdminCog(commands.Cog):
                 "Error in leaderboard creation.",
                 ephemeral=True,
             )
-        if thread:
-            await thread.thread.delete()
+        if forum_thread is not None:
+            await forum_thread.delete()
 
         with self.bot.leaderboard_db as db:  # Cleanup in case lb was created
             db.delete_leaderboard(leaderboard_name)
@@ -297,6 +322,7 @@ class AdminCog(commands.Cog):
         leaderboard_name: str,
         date_value: datetime,
         task: LeaderboardTask,
+        forum_id: int,
         gpu: Optional[str | list[str]] = None,
     ) -> bool:
         if gpu is None:
@@ -328,6 +354,7 @@ class AdminCog(commands.Cog):
                         "task": task,
                         "gpu_types": selected_gpus,
                         "creator_id": interaction.user.id,
+                        "forum_id": forum_id,
                     }
                 )
             except KernelBotError as e:
@@ -370,7 +397,11 @@ class AdminCog(commands.Cog):
         )
 
         forum_channel = self.bot.get_channel(self.bot.leaderboard_forum_id)
-        threads = [thread for thread in forum_channel.threads if thread.name == leaderboard_name]
+
+        with self.bot.leaderboard_db as db:
+            lb: LeaderboardItem = db.get_leaderboard(leaderboard_name)
+            forum_id = lb["forum_id"]
+        threads = [thread for thread in forum_channel.threads if thread.id == forum_id]
 
         if threads:
             thread = threads[0]
@@ -686,8 +717,17 @@ class AdminCog(commands.Cog):
 
             for entry in update_list:
                 with self.bot.leaderboard_db as db:
-                    db.update_leaderboard(
-                        entry["name"], entry["deadline"], make_task(root / entry["directory"])
+                    task = make_task(root / entry["directory"])
+                    db.update_leaderboard(entry["name"], entry["deadline"], task)
+                    new_lb: LeaderboardItem = db.get_leaderboard(entry["name"])
+
+                forum_id = new_lb["forum_id"]
+                forum_thread = await self.bot.fetch_channel(forum_id)
+                if forum_thread:
+                    await forum_thread.starter_message.edit(
+                        content=self._leaderboard_opening_message(
+                            entry["name"], new_lb["deadline"], task.description
+                        )
                     )
 
             header += " DONE"
@@ -782,6 +822,10 @@ class AdminCog(commands.Cog):
         )
 
         return msg, [file, run_results]
+
+    ####################################################################################################################
+    #            MIGRATION COMMANDS --- TO BE DELETED LATER
+    ####################################################################################################################
 
     async def get_user_names(self, interaction: discord.Interaction):
         """Get a mapping of user IDs to their names"""
@@ -894,8 +938,51 @@ class AdminCog(commands.Cog):
             )
 
         except json.JSONDecodeError:
-            await send_discord_message(interaction, "Invalid JSON format in the attached file.")
+            await send_discord_message(
+                interaction, "Invalid JSON format in the attached file.", ephemeral=True
+            )
         except Exception as e:
             error_message = f"Error updating database with user names: {str(e)}"
             logger.error(error_message, exc_info=True)
-            await send_discord_message(interaction, error_message)
+            await send_discord_message(interaction, error_message, ephemeral=True)
+
+    async def set_forum_ids(self, interaction: discord.Interaction):
+        try:
+            with self.bot.leaderboard_db as db:
+                db.cursor.execute(
+                    """
+                    SELECT id, name
+                    FROM leaderboard.leaderboard
+                    WHERE forum_id = -1
+                    """,
+                )
+
+                for id, name in db.cursor.fetchall():
+                    # search forum threads
+                    forum_channel = self.bot.get_channel(self.bot.leaderboard_forum_id)
+                    threads = [thread for thread in forum_channel.threads if thread.name == name]
+                    if len(threads) != 1:
+                        await send_discord_message(
+                            interaction, f"Could not set forum thread for {name}", ephemeral=True
+                        )
+                        continue
+                    thread = threads[0]
+                    db.cursor.execute(
+                        """
+                        UPDATE leaderboard.leaderboard
+                        SET forum_id = %s
+                        WHERE id = %s
+                        """,
+                        thread.id,
+                        id,
+                    )
+
+                db.connection.commit()
+                await send_discord_message(
+                    interaction,
+                    "Successfully updated forum ids.",
+                )
+        except Exception as e:
+            error_message = f"Error updating forum ids: {str(e)}"
+            logger.error(error_message, exc_info=True)
+            await send_discord_message(interaction, error_message, ephemeral=True)
