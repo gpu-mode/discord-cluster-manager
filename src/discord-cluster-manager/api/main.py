@@ -117,18 +117,19 @@ async def cli_auth(code: str, state: str = None):
     user_id = user_json.get("id")
     user_name = user_json.get("username")
 
+    if not state:
+        raise HTTPException(status_code=400, detail="State parameter with CLI ID is required")
+
+    try:
+        cli_id = base64.b64decode(state).decode("utf-8")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid state parameter: {str(e)}") from e
+
     with bot_instance.leaderboard_db as db:
         try:
-            db.create_user_from_cli(user_id, user_name, state)
+            db.create_user_from_cli(user_id, user_name, cli_id)
         except Exception as e:
             raise HTTPException(status_code=400, detail="Failed to create user") from e
-
-    cli_id = ""
-    if state:
-        try:
-            cli_id = base64.b64decode(state).decode("utf-8")
-        except Exception as e:
-            raise HTTPException(status_code=400, detail=f"Invalid state parameter: {str(e)}") from e
 
     return {"status": "success", "user_id": user_id, "cli_id": cli_id, "user_name": user_name}
 
