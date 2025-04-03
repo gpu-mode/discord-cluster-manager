@@ -22,7 +22,7 @@ DISCORD_CLUSTER_STAGING_ID = os.getenv("DISCORD_CLUSTER_STAGING_ID")
 DISCORD_DEBUG_CLUSTER_STAGING_ID = os.getenv("DISCORD_DEBUG_CLUSTER_STAGING_ID")
 
 # Only required to run the CLI against this instance
-# setting theses is required only to run the CLI against local instance
+# setting these is required only to run the CLI against local instance
 CLI_DISCORD_CLIENT_ID = os.getenv("CLI_DISCORD_CLIENT_ID", "")
 CLI_DISCORD_CLIENT_SECRET = os.getenv("CLI_DISCORD_CLIENT_SECRET", "")
 CLI_TOKEN_URL = os.getenv("CLI_TOKEN_URL", "")
