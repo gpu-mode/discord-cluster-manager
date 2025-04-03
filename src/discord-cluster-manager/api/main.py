@@ -117,9 +117,6 @@ async def cli_auth(code: str, state: str = None):
     user_id = user_json.get("id")
     user_name = user_json.get("username")
 
-    if not state:
-        raise HTTPException(status_code=400, detail="State parameter with CLI ID is required")
-
     try:
         cli_id = base64.b64decode(state).decode("utf-8")
     except Exception as e:
