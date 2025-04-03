@@ -761,7 +761,7 @@ class LeaderboardDB:
         except psycopg2.Error as e:
             self.connection.rollback()
             logger.exception("Could not create/update user %s from CLI.", user_id, exc_info=e)
-            raise KernelBotError(f"Could not create/update user {user_id} from CLI.") from e
+            raise e
 
 
 if __name__ == "__main__":
