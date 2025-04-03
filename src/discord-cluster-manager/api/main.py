@@ -115,6 +115,13 @@ async def cli_auth(code: str, state: str = None):
 
     user_json = user_response.json()
     user_id = user_json.get("id")
+    user_name = user_json.get("username")
+
+    with bot_instance.leaderboard_db as db:
+        try:
+            db.create_user_from_cli(user_id, user_name, state)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail="Failed to create user") from e
 
     cli_id = ""
     if state:
@@ -123,7 +130,7 @@ async def cli_auth(code: str, state: str = None):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid state parameter: {str(e)}") from e
 
-    return {"status": "success", "user_id": user_id, "cli_id": cli_id}
+    return {"status": "success", "user_id": user_id, "cli_id": cli_id, "user_name": user_name}
 
 
 @app.post("/{leaderboard_name}/{gpu_type}/{submission_mode}")
