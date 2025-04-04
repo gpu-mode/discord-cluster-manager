@@ -26,7 +26,8 @@ async def _send_split_log(thread: discord.Thread, partial_message: str, header: 
             if len(partial_message) + len(line) < 1900:
                 partial_message += line + "\n"
             else:
-                chunks.append(partial_message)
+                if partial_message != "":
+                    chunks.append(partial_message)
                 partial_message = line
 
         if partial_message != "":
@@ -111,7 +112,7 @@ async def _generate_test_report(thread: discord.Thread, run: RunResult):
     return
 
 
-def private_run_report(runs: dict[str, EvalResult]) -> list[str]:  # noqa: C901
+def make_short_report(runs: dict[str, EvalResult], full=True) -> list[str]:  # noqa: C901
     """
     Creates a minimalistic report for `runs`,
     returned as a list of status strings
@@ -127,31 +128,42 @@ def private_run_report(runs: dict[str, EvalResult]) -> list[str]:  # noqa: C901
     if any_compile:
         result.append("✅ Compilation successful")
 
-    if "test" not in runs or not runs["test"].run.success:
-        result.append("❌ Running tests failed")
-        return result
-    elif not runs["test"].run.passed:
-        result.append("❌ Testing failed")
-        return result
-    else:
-        result.append("✅ Testing successful")
+    if "test" in runs:
+        test_run = runs["test"].run
+        if not test_run.success:
+            result.append("❌ Running tests failed")
+            return result
+        elif not test_run.passed:
+            result.append("❌ Testing failed")
+            return result
+        else:
+            result.append("✅ Testing successful")
+    elif full:
+        result.append("❌ Tests missing")
 
-    if "benchmark" not in runs or not runs["benchmark"].run.success:
-        result.append("❌ Running benchmarks failed")
-        return result
-    elif not runs["benchmark"].run.passed:
-        result.append("❌ Benchmarking failed")
-        return result
-    else:
-        result.append("✅ Benchmarking successful")
+    if "benchmark" in runs:
+        bench_run = runs["benchmark"].run
+        if bench_run.success:
+            result.append("❌ Running benchmarks failed")
+            return result
+        elif not bench_run.passed:
+            result.append("❌ Benchmarking failed")
+            return result
+        else:
+            result.append("✅ Benchmarking successful")
+    elif full:
+        result.append("❌ Benchmarks missing")
 
-    if "leaderboard" not in runs or not runs["leaderboard"].run.success:
-        result.append("❌ Running leaderboard failed")
-    elif not runs["leaderboard"].run.passed:
-        result.append("❌ Leaderboard run failed")
-    else:
-        result.append("✅ Leaderboard run successful")
-
+    if "leaderboard" in runs:
+        lb_run = runs["leaderboard"].run
+        if not lb_run.success:
+            result.append("❌ Running leaderboard failed")
+        elif not lb_run.passed:
+            result.append("❌ Leaderboard run failed")
+        else:
+            result.append("✅ Leaderboard run successful")
+    elif full:
+        result.append("❌ Leaderboard missing")
     return result
 
 
@@ -255,6 +267,24 @@ async def generate_report(thread: discord.Thread, runs: dict[str, EvalResult]): 
             thread,
             message,
             "Benchmarks",
+            make_benchmark_log(bench_run),
+        )
+
+    if "leaderboard" in runs:
+        bench_run = runs["leaderboard"]
+        if bench_run.compilation is not None and not bench_run.compilation.success:
+            await _generate_compile_report(thread, bench_run.compilation)
+            return
+
+        bench_run = bench_run.run
+        if not bench_run.success:
+            await _generate_crash_report(thread, bench_run)
+            return
+
+        message = await _send_split_log(
+            thread,
+            message,
+            "Ranked Benchmark",
             make_benchmark_log(bench_run),
         )
 
