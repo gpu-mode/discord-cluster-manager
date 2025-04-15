@@ -8,13 +8,19 @@ if TYPE_CHECKING:
     from bot import ClusterBot
 
 import discord
-from consts import GPU, GPU_TO_SM, SubmissionMode, get_gpu_by_name, RankCriterion
+from consts import GPU, GPU_TO_SM, RankCriterion, SubmissionMode, get_gpu_by_name
 from discord import app_commands
 from discord.ext import commands
 from report import MultiProgressReporter, RunProgressReporter, make_short_report
 from run_eval import FullResult
 from task import LeaderboardTask
-from utils import build_task_config, send_discord_message, setup_logging, with_error_handling, KernelBotError
+from utils import (
+    KernelBotError,
+    build_task_config,
+    send_discord_message,
+    setup_logging,
+    with_error_handling,
+)
 
 logger = setup_logging()
 
@@ -96,14 +102,22 @@ class SubmitCog(commands.Cog):
                 num_benchmarks = int(result.runs["leaderboard"].run.result["benchmark-count"])
                 if task.ranking_by == RankCriterion.LAST:
                     if num_benchmarks != 1:
-                        logger.error("Ranked submission error for submission %d ranking_by is `last`, but got %d benchmarks",
-                                     submission_id, num_benchmarks)
-                        raise KernelBotError(f"Expected submission to have exactly one benchmark, got {num_benchmarks}.")
-                    score = float(result.runs["leaderboard"].run.result[f"benchmark.0.mean"]) / 1e9
+                        logger.error(
+                            "Ranked submission error for submission %d ranking_by is `last`, but got %d benchmarks",
+                            submission_id,
+                            num_benchmarks,
+                        )
+                        raise KernelBotError(
+                            f"Expected submission to have exactly one benchmark, got {num_benchmarks}."
+                        )
+                    score = float(result.runs["leaderboard"].run.result["benchmark.0.mean"]) / 1e9
                 else:
                     scores = []
                     for i in range(num_benchmarks):
-                        scores.append(float(result.runs["leaderboard"].run.result[f"benchmark.{i}.mean"]) / 1e9)
+                        scores.append(
+                            float(result.runs["leaderboard"].run.result[f"benchmark.{i}.mean"])
+                            / 1e9
+                        )
                     if task.ranking_by == RankCriterion.MEAN:
                         score = sum(scores) / len(scores)
                     elif task.ranking_by == RankCriterion.GEOM:

@@ -109,9 +109,9 @@ class Language(Enum):
 
 
 class RankCriterion(Enum):
-    LAST = "last"   # only last benchmark counts
-    MEAN = "mean"   # arithmetic mean of all benchmarks
-    GEOM = "geom"   # geometric mean of all benchmarks
+    LAST = "last"  # only last benchmark counts
+    MEAN = "mean"  # arithmetic mean of all benchmarks
+    GEOM = "geom"  # geometric mean of all benchmarks
 
 
 GPU_TO_SM = {

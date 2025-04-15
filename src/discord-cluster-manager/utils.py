@@ -2,10 +2,11 @@ import datetime
 import functools
 import logging
 import subprocess
-from typing import Any, List, NotRequired, Optional, TypedDict, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, List, NotRequired, Optional, TypedDict
 
 import discord
 from consts import Language, SubmissionMode
+
 if TYPE_CHECKING:
     from task import LeaderboardTask
 
