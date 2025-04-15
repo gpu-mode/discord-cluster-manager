@@ -267,6 +267,7 @@ def build_task_config(
             "test_timeout": task.test_timeout,
             "benchmark_timeout": task.benchmark_timeout,
             "ranked_timeout": task.ranked_timeout,
+            "ranking_by": task.ranking_by.value,
             "seed": task.seed,
         }
 
