@@ -1,10 +1,12 @@
 import copy
 import dataclasses
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Union
 
 from consts import Language, RankCriterion
+from utils import KernelBotError
 
 
 @dataclasses.dataclass
@@ -97,8 +99,12 @@ def make_task(yaml_file: str | Path) -> LeaderboardTask:
     if Path(yaml_file).is_dir():
         yaml_file = Path(yaml_file) / "task.yml"
 
-    with open(yaml_file) as f:
-        raw = yaml.safe_load(f)
+    try:
+        with open(yaml_file) as f:
+            raw = yaml.safe_load(f)
+    except yaml.parser.ParserError as E:
+        logging.exception("Error loading task.yml", exc_info=E)
+        raise KernelBotError(f"Error loading task.yml: {E}")
 
     root = Path(yaml_file).parent
 

@@ -2,11 +2,12 @@ import datetime
 import functools
 import logging
 import subprocess
-from typing import Any, List, NotRequired, Optional, TypedDict
+from typing import Any, List, NotRequired, Optional, TypedDict, TYPE_CHECKING
 
 import discord
 from consts import Language, SubmissionMode
-from task import LeaderboardTask
+if TYPE_CHECKING:
+    from task import LeaderboardTask
 
 
 def setup_logging(name: Optional[str] = None):
@@ -179,7 +180,7 @@ class LeaderboardItem(TypedDict):
     name: str
     creator_id: int
     deadline: datetime.datetime
-    task: LeaderboardTask
+    task: "LeaderboardTask"
     gpu_types: List[str]
     forum_id: int
     secret_seed: NotRequired[int]
@@ -224,7 +225,7 @@ class SubmissionItem(TypedDict):
 
 
 def build_task_config(
-    task: LeaderboardTask = None,
+    task: "LeaderboardTask" = None,
     submission_content: str = None,
     arch: str = None,
     mode: SubmissionMode = None,
