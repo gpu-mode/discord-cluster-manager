@@ -65,7 +65,7 @@ class SubmitCog(commands.Cog):
         for gpu in launcher.gpus:
             self.launcher_map[gpu.value] = launcher
 
-    async def submit_leaderboard(
+    async def submit_leaderboard(  # noqa: C901
         self,
         submission_id: int,
         code: str,
@@ -103,12 +103,14 @@ class SubmitCog(commands.Cog):
                 if task.ranking_by == RankCriterion.LAST:
                     if num_benchmarks != 1:
                         logger.error(
-                            "Ranked submission error for submission %d ranking_by is `last`, but got %d benchmarks",
+                            "Ranked submission error for submission %d ranking_by is `last`, "
+                            "but got %d benchmarks",
                             submission_id,
                             num_benchmarks,
                         )
                         raise KernelBotError(
-                            f"Expected submission to have exactly one benchmark, got {num_benchmarks}."
+                            f"Expected submission to have exactly one benchmark,"
+                            f"got {num_benchmarks}."
                         )
                     score = float(result.runs["leaderboard"].run.result["benchmark.0.mean"]) / 1e9
                 else:
