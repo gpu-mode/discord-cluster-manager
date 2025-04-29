@@ -166,11 +166,7 @@ class GitHubRun:
             logger.error(f"Could not find workflow {self.workflow_file}", exc_info=e)
             raise ValueError(f"Could not find workflow {self.workflow_file}") from e
 
-        logger.info(
-            "Dispatching workflow %s on branch %s",
-            self.workflow_file,
-            self.branch
-        )
+        logger.info("Dispatching workflow %s on branch %s", self.workflow_file, self.branch)
         logger.debug(
             "Dispatching workflow %s with inputs %s",
             self.workflow_file,
