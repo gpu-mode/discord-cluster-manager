@@ -17,7 +17,7 @@ try:
 except ImportError:
     TestSpec = dict
 
-from reference import check_implementation, generate_input
+from reference import check_implementation, generate_input, ref_kernel
 
 
 class PopcornOutput:
@@ -198,18 +198,21 @@ def run_testing(logger: PopcornOutput, pool: multiprocessing.Pool, tests: list[T
         return 112
 
 
-def _run_single_benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float) -> Stats | Any:
+def _run_single_benchmark(test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float, is_baseline_run: bool) -> Stats | Any:
     """
     Runs one benchmark. Do not call directly.
     """
-    from submission import custom_kernel
+    if not is_baseline_run:
+        # submission does not exist for a baseline run
+        from submission import custom_kernel
 
     durations = []
     # generate input data once
     data = generate_input(**test.args)
     check_copy = _clone_data(data)
+    active_kernel = ref_kernel if is_baseline_run else custom_kernel
     #  first, one obligatory correctness check
-    output = custom_kernel(data)
+    output = active_kernel(data)
     good, message = wrap_check_implementation(check_copy, output)
     if not good:
         return message
@@ -229,12 +232,12 @@ def _run_single_benchmark(test: TestCase, recheck: bool, max_repeats: int, max_t
             check_copy = _clone_data(data)
         torch.cuda.synchronize()
         start = time.perf_counter_ns()
-        output = custom_kernel(data)
+        output = active_kernel(data)
         torch.cuda.synchronize()
         end = time.perf_counter_ns()
 
         if recheck:
-            good, message = check_implementation(check_copy, output)
+            good, message = wrap_check_implementation(check_copy, output)
             if not good:
                 return message
 
@@ -249,7 +252,7 @@ def _run_single_benchmark(test: TestCase, recheck: bool, max_repeats: int, max_t
     return calculate_stats(durations)
 
 
-def run_single_benchmark(pool: multiprocessing.Pool, test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float):
+def run_single_benchmark(pool: multiprocessing.Pool, test: TestCase, recheck: bool, max_repeats: int, max_time_ns: float, is_baseline_run: bool = False):
     """
     For a particular test case, check correctness (if applicable) and grab runtime results.
 
@@ -260,7 +263,7 @@ def run_single_benchmark(pool: multiprocessing.Pool, test: TestCase, recheck: bo
     @param max_time_ns: Timeout time in nanoseconds.
     @return: A Stats object for this particular benchmark case or an error if the test fails.
     """
-    return pool.apply(_run_single_benchmark, (test, recheck, max_repeats, max_time_ns))
+    return pool.apply(_run_single_benchmark, (test, recheck, max_repeats, max_time_ns, is_baseline_run))
 
 
 def run_benchmarking(logger: PopcornOutput, pool: multiprocessing.Pool, tests: list[TestCase]):
@@ -300,13 +303,13 @@ def run_single_profile(test: TestCase) -> str:
     """
     Runs a single test case. Do not call directly
     """
-    from submission import custom_kernel
     from torch.profiler import profile, record_function, ProfilerActivity
+    from submission import custom_kernel
     data = generate_input(**test.args)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        submission_output = custom_kernel(_clone_data(data))
+        submission_output = active_kernel(_clone_data(data))
         torch.cuda.synchronize()
     return prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=20)
 
@@ -327,9 +330,9 @@ def main():
         return 111
 
     if len(sys.argv) < 3:
-        return 2
+        return 222
 
-    mode = sys.argv[1]
+    mode = sys.argv[1].strip()
     seed = os.getenv("POPCORN_SEED")
     os.unsetenv("POPCORN_SEED")
     seed = int(seed) if seed else None
@@ -345,13 +348,14 @@ def main():
             if mode == "benchmark":
                 return run_benchmarking(logger, pool, tests)
 
-            if mode == "leaderboard":
+            if (mode == "leaderboard") or (mode == "baseline"):
+                is_baseline_run = mode == "baseline"
                 # warmup
-                run_single_benchmark(pool, tests[0], False, 100, 1e7)
+                run_single_benchmark(pool, tests[0], False, 100, 1e7, is_baseline_run)
                 logger.log("benchmark-count", len(tests))
                 passed = True
                 for i in range(len(tests)):
-                    result = run_single_benchmark(pool, tests[i], True, 100, 30e9)
+                    result = run_single_benchmark(pool, tests[i], True, 100, 30e9, is_baseline_run)
                     logger.log(f"benchmark.{i}.spec", tests[i].spec)
                     if isinstance(result, Stats):
                         for field in dataclasses.fields(Stats):
@@ -367,7 +371,9 @@ def main():
                 run_profiling(logger, tests)
             else:
                 # TODO: Implement script mode
-                return 2
+                logger.log(mode, "not implemented")
+                print(f"mode {mode} not implemented")
+                return 333
 
 
 if __name__ == "__main__":

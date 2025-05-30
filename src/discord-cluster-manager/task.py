@@ -65,6 +65,7 @@ class LeaderboardTask:
     templates: dict[str, str] = dataclasses.field(default_factory=dict)
     seed: Optional[int] = None
 
+
     @staticmethod
     def from_dict(data: dict):
         data_ = copy.copy(data)

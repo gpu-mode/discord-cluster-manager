@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, List, Optional
 
 import discord
 from consts import (
+    BASELINE_USER,
+    BASELINE_USER_ID,
     SubmissionMode,
     get_gpu_by_name,
 )
@@ -63,28 +65,51 @@ class LeaderboardSubmitCog(app_commands.Group):
         self,
         interaction: discord.Interaction,
         leaderboard_name: Optional[str],
-        script: discord.Attachment,
+        script: Optional[discord.Attachment],
         mode: SubmissionMode,
         cmd_gpus: Optional[List[str]],
     ) -> int:
         """
         Called as the main body of a submission to route to the correct runner.
         """
-        # Read the template file
-        submission_content = await script.read()
 
-        try:
-            submission_content = submission_content.decode()
-        except UnicodeError:
-            await send_discord_message(
-                interaction, "Could not decode your file. Is it UTF-8?", ephemeral=True
-            )
-            return -1
+        if script is None:
+            if mode != SubmissionMode.BASELINE and not script:
+                await send_discord_message(
+                    interaction,
+                    "Script attachment is required for this unless submission mode is baseline",
+                    ephemeral=True,
+                )
+                return -1
+            else:
+                submission_content = ""
+        else:
+            # Read the template file
+            submission_content = await script.read()
+
+            try:
+                submission_content = submission_content.decode()
+            except UnicodeError:
+                await send_discord_message(
+                    interaction, "Could not decode your file. Is it UTF-8?", ephemeral=True
+                )
+                return -1
+        if mode == SubmissionMode.BASELINE:
+            # create fake baseline submission
+            file_name = None
+            submission_content = None
+            user_id = BASELINE_USER_ID
+            user_name = BASELINE_USER
+        else:
+            file_name = script.filename
+            submission_content = submission_content
+            user_id = interaction.user.id
+            user_name = interaction.user.global_name or interaction.user.name
 
         req = SubmissionRequest(
             code=submission_content,
-            file_name=script.filename,
-            user_id=interaction.user.id,
+            file_name=file_name,
+            user_id=user_id,
             gpus=cmd_gpus,
             leaderboard=leaderboard_name,
         )
@@ -105,26 +130,28 @@ class LeaderboardSubmitCog(app_commands.Group):
 
         command = self.bot.get_cog("SubmitCog").submit_leaderboard
 
-        user_name = interaction.user.global_name or interaction.user.name
         # Create a submission entry in the database
         with self.bot.leaderboard_db as db:
             sub_id = db.create_submission(
                 leaderboard=req.leaderboard,
-                file_name=script.filename,
+                file_name=file_name,
                 code=submission_content,
-                user_id=interaction.user.id,
+                user_id=user_id,
                 time=datetime.now(),
                 user_name=user_name,
             )
+        if mode == SubmissionMode.BASELINE:
+            run_msg = f"Submission **{sub_id}**: is a baseline submission for `{req.leaderboard}`"
+        else:
+            run_msg = f"Submission **{sub_id}**: `{file_name}` for `{req.leaderboard}`"
 
-        run_msg = f"Submission **{sub_id}**: `{script.filename}` for `{req.leaderboard}`"
         reporter = MultiProgressReporter(interaction, run_msg)
         try:
             tasks = [
                 command(
                     sub_id,
                     submission_content,
-                    script.filename,
+                    file_name,
                     gpu,
                     reporter.add_run(f"{gpu.name} on {gpu.runner}"),
                     req.task,
@@ -140,7 +167,7 @@ class LeaderboardSubmitCog(app_commands.Group):
                     command(
                         sub_id,
                         submission_content,
-                        script.filename,
+                        file_name,
                         gpu,
                         reporter.add_run(f"{gpu.name} on {gpu.runner} (secret)"),
                         req.task,
@@ -155,7 +182,7 @@ class LeaderboardSubmitCog(app_commands.Group):
             with self.bot.leaderboard_db as db:
                 db.mark_submission_done(sub_id)
 
-        if mode == SubmissionMode.LEADERBOARD:
+        if mode == SubmissionMode.LEADERBOARD or mode == SubmissionMode.BASELINE:
             await self.post_submit_hook(interaction, sub_id)
         return sub_id
 
@@ -194,16 +221,15 @@ class LeaderboardSubmitCog(app_commands.Group):
     async def post_submit_hook(self, interaction: discord.Interaction, sub_id: int):
         with self.bot.leaderboard_db as db:
             sub_data: SubmissionItem = db.get_submission_by_id(sub_id)
-
         result_lines = []
         for run in sub_data["runs"]:
             if (
                 not run["secret"]
-                and run["mode"] == SubmissionMode.LEADERBOARD.value
+                and (run["mode"] == SubmissionMode.LEADERBOARD.value
+                or run["mode"] == SubmissionMode.BASELINE.value)
                 and run["passed"]
             ):
                 result_lines.append(self.generate_run_verdict(run, sub_data))
-
         if len(result_lines) > 0:
             await send_discord_message(
                 interaction,
@@ -224,10 +250,19 @@ class LeaderboardSubmitCog(app_commands.Group):
         self,
         interaction: discord.Interaction,
         leaderboard_name: Optional[str],
-        script: discord.Attachment,
+        script: Optional[discord.Attachment],
         mode: SubmissionMode,
         gpu: Optional[str],
     ):
+
+        if not mode == SubmissionMode.BASELINE and not script:
+            await send_discord_message(
+                interaction,
+                "Script attachment is required for this unless submission mode is baseline",
+                ephemeral=True,
+            )
+            return
+
         if not self.bot.accepts_jobs:
             await send_discord_message(
                 interaction,
@@ -318,7 +353,6 @@ class LeaderboardSubmitCog(app_commands.Group):
         return await self.submit(
             interaction, leaderboard_name, script, mode=SubmissionMode.LEADERBOARD, gpu=gpu
         )
-
 
 async def lang_autocomplete(
     interaction: discord.Interaction,

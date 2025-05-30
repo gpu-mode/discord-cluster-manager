@@ -218,7 +218,6 @@ def compile_cuda_script(  # # noqa: C901
 
 
 def run_program(args: list[str], seed: Optional[int], timeout: int) -> RunResult:
-    print("[Running]")
     # set up a pipe so the tester can communicate its verdict with us
     env = os.environ.copy()
     pipe_read, pipe_write = os.pipe()
@@ -296,7 +295,7 @@ def run_single_evaluation(
             tests_file.write(tests)
             tests_file.flush()
             return run_program(call + [mode, tests_file.name], seed=seed, timeout=test_timeout)
-    elif mode in ["benchmark", "profile", "leaderboard"]:
+    elif mode in ["benchmark", "profile", "leaderboard", "baseline"]:
         timeout = ranked_timeout if mode == "leaderboard" else benchmark_timeout
         with tempfile.NamedTemporaryFile("w") as bench_file:
             if ranking_by == "last":
@@ -432,6 +431,7 @@ def run_cuda_script(  # # noqa: C901
 def run_pytorch_script(  # noqa: C901
     sources: dict[str, str],
     main: str,
+    is_baseline: bool = False,
     **kwargs,
 ) -> EvalResult:
     """
@@ -448,38 +448,39 @@ def run_pytorch_script(  # noqa: C901
     start = datetime.datetime.now()
     try:
         assert main in sources.keys()
-
-        # Write submission files to directory
         _create_files(sources)
 
         # "compile" step: execute the script once. Will populate
         # `load_inline`'s compile cache, so the actual runs will be faster.
-        try:
-            compile_run = run_program(["python", "submission.py"], seed=1, timeout=Timeout.COMPILE)
-            if "-DTORCH_EXTENSION_NAME" in compile_run.stdout:
+        comp = None
+        if not is_baseline:
+            try:
+                compile_run = run_program(["python",
+                "submission.py"],
+                 seed=1,
+                 timeout=Timeout.COMPILE)
+                if "-DTORCH_EXTENSION_NAME" in compile_run.stdout:
+                    comp = CompileResult(
+                        nvcc_found=True,
+                        nvcc_version="",
+                        success=True,
+                        command=compile_run.command,
+                        stdout=compile_run.stdout,
+                        stderr=compile_run.stderr,
+                        exit_code=compile_run.exit_code,
+                    )
+            except subprocess.CalledProcessError as e:
+                # This step is purely optional, so we just go on
+                # if it fails
                 comp = CompileResult(
-                    nvcc_found=True,
+                    nvcc_found=False,
                     nvcc_version="",
-                    success=True,
-                    command=compile_run.command,
-                    stdout=compile_run.stdout,
-                    stderr=compile_run.stderr,
-                    exit_code=compile_run.exit_code,
+                    success=False,
+                    command="python submission.py",
+                    stdout=e.stdout,
+                    stderr=e.stderr,
+                    exit_code=e.returncode,
                 )
-            else:
-                comp = None
-        except subprocess.CalledProcessError as e:
-            # This step is purely optional, so we just go on
-            # if it fails
-            comp = CompileResult(
-                nvcc_found=False,
-                nvcc_version="",
-                success=False,
-                command="python submission.py",
-                stdout=e.stdout,
-                stderr=e.stderr,
-                exit_code=e.returncode,
-            )
 
         run = run_single_evaluation(["python", main], **kwargs)
 
@@ -511,7 +512,7 @@ def run_evaluation(
     require multiple runner calls.
     """
     results: dict[str, EvalResult] = {}
-    if mode in ["test", "benchmark", "profile", "script"]:
+    if mode in ["test", "benchmark", "profile", "script", "baseline"]:
         results[mode] = call(mode=mode)
     elif mode in ["private", "leaderboard"]:
         # first, run the tests
@@ -528,7 +529,7 @@ def run_evaluation(
         # if they pass, run the leaderboard validation
         results["leaderboard"] = call(mode="leaderboard")
     else:
-        raise AssertionError("Invalid mode")
+        raise AssertionError(f"Invalid mode: {mode}")
 
     return results
 
@@ -544,6 +545,12 @@ def build_test_string(tests: list[dict]):
 
 
 def run_config(config: dict):
+    mode = config["mode"]
+    is_baseline = False
+    if mode == "baseline":
+        config["sources"].pop("submission.py", None)
+        is_baseline = True
+
     common_args = {
         "tests": build_test_string(config.get("tests", [])),
         "benchmarks": build_test_string(config.get("benchmarks", [])),
@@ -558,6 +565,7 @@ def run_config(config: dict):
             run_pytorch_script,
             sources=config["sources"],
             main=config["main"],
+            is_baseline=is_baseline,
             **common_args,
         )
     elif config["lang"] == "cu":

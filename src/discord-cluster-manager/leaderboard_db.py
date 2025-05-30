@@ -6,6 +6,7 @@ from typing import List, Optional
 
 import discord
 import psycopg2
+from consts import BASELINE_USER, BASELINE_USER_ID
 from env import (
     DATABASE_URL,
     DISABLE_SSL,
@@ -220,6 +221,11 @@ class LeaderboardDB:
         time: datetime.datetime,
         user_name: str = None,
     ) -> Optional[int]:
+        if user_id == BASELINE_USER_ID and user_name == BASELINE_USER:
+            # todo: add reference code to the database
+            code = ""
+            file_name = "reference.py"
+
         try:
             # check if we already have the code
             self.cursor.execute(
@@ -293,6 +299,22 @@ class LeaderboardDB:
             )
             self.connection.rollback()  # Ensure rollback if error occurs
             raise KernelBotError("Error during creation of submission") from e
+
+    def has_baseline_run(self, leaderboard_name: str) -> bool:
+        try:
+            self.cursor.execute(
+                """
+                SELECT COUNT(*) FROM leaderboard.runs r
+                JOIN leaderboard.submission s ON r.submission_id = s.id
+                JOIN leaderboard.leaderboard l ON s.leaderboard_id = l.id
+                WHERE l.name = %s AND s.user_id = %s
+                """,
+                (leaderboard_name, str(BASELINE_USER_ID)),
+            )
+            return self.cursor.fetchone()[0] > 0
+        except psycopg2.Error as e:
+            logger.error("Error checking for reference run", exc_info=e)
+            return False
 
     def mark_submission_done(
         self,

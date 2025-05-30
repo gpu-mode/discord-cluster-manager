@@ -80,7 +80,7 @@ class SubmissionMode(Enum):
     """
     Different types of submission that can be made:
     Test: Run tests and give detailed results about passed/failed tests. These have short timeouts.
-    Benchmark: Run larger benchmarks. Each benchmark is tested once, and then run multiple times.
+    Benchmark: Run larger benchmarks. Each benchmark is tested once, then run multiple times.
     Profile: Gather profiling information. One selected benchmark is run under the profiler. No
         testing is performed in this mode (sometimes, you need to profile deliberately broken code)
     Leaderboard: Official submission to the leaderboard. This first runs public tests, then a
@@ -97,7 +97,7 @@ class SubmissionMode(Enum):
     LEADERBOARD = "leaderboard"
     PRIVATE = "private"
     SCRIPT = "script"
-
+    BASELINE = "baseline"
 
 class Language(Enum):
     Python = "py"
@@ -157,3 +157,7 @@ AMD_REQUIREMENTS = """
 --index-url https://download.pytorch.org/whl/rocm6.2.4
 torch
 """
+
+# Constants used for baseline runs
+BASELINE_USER = "BASELINE_USER"
+BASELINE_USER_ID = -123

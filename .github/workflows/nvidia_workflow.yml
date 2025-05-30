@@ -18,24 +18,31 @@ jobs:
     container:
       image: nvidia/cuda:12.4.0-devel-ubuntu22.04
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
     - name: Setup Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.10'
-
+    
     - name: Create input files
-      shell: bash
-      run: |
-        # Extract the payload content without printing it
-        PAYLOAD=$(jq -r '.inputs.payload' $GITHUB_EVENT_PATH)
-        
-        # Apply mask to the extracted content
-        echo "::add-mask::$PAYLOAD"
-        
-        # Now write to file (won't be logged since it's masked)
-        echo "$PAYLOAD" > payload.json
+      uses: nick-fields/retry@v3
+      with:
+        timeout_minutes: 2
+        max_attempts: 5
+        shell: bash
+        command: |
+          # install jq
+          apt update
+          apt install -y jq
+          # Extract the payload content without printing it
+          PAYLOAD=$(jq -r '.inputs.payload' $GITHUB_EVENT_PATH)
+          
+          # Apply mask to the extracted content
+          echo "::add-mask::$PAYLOAD"
+          
+          # Now write to file (won't be logged since it's masked)
+          echo "$PAYLOAD" > payload.json
 
     - name: Install uv
       uses: astral-sh/setup-uv@v3

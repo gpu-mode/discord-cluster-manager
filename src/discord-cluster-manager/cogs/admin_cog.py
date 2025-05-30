@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Optional, TypedDict
 import discord
 import env
 import yaml
-from consts import GitHubGPU, ModalGPU
+from cogs.leaderboard_cog import LeaderboardSubmitCog
+from consts import GitHubGPU, ModalGPU, SubmissionMode
 from discord import app_commands
 from discord.ext import commands, tasks
 from leaderboard_db import leaderboard_name_autocomplete
@@ -119,6 +120,10 @@ class AdminCog(commands.Cog):
         self.set_forum_ids = bot.admin_group.command(
             name="set-forum-ids", description="Sets forum IDs"
         )(self.set_forum_ids)
+
+        self.baseline_run = bot.admin_group.command(
+            name="baseline-run", description="Create a baseline run for a leaderboard"
+        )(self.baseline_run)
 
         self._scheduled_cleanup_temp_users.start()
 
@@ -1025,3 +1030,58 @@ class AdminCog(commands.Cog):
             error_message = f"Error updating forum ids: {str(e)}"
             logger.error(error_message, exc_info=True)
             await send_discord_message(interaction, error_message, ephemeral=True)
+
+    # ----------------------------------------------------------------------
+    # Baseline run submission (admin only)
+    # ----------------------------------------------------------------------
+    @discord.app_commands.describe(
+        leaderboard_name="Name of the leaderboard to create a baseline run for",
+        gpu="GPU(s) to use; leave empty for interactive selection",
+        force="Create another baseline run even if one already exists.",
+    )
+    @discord.app_commands.autocomplete(
+        leaderboard_name=leaderboard_name_autocomplete,
+    )
+    @with_error_handling
+    async def baseline_run(
+        self,
+        interaction: discord.Interaction,
+        leaderboard_name: str,
+        gpu: Optional[str] = None,
+        force: bool = False,
+    ):
+        """Admin command to create (or force-create) a baseline run."""
+
+        # Ensure caller is admin
+        is_admin = await self.admin_check(interaction)
+        if not is_admin:
+            await send_discord_message(
+                interaction,
+                "You need Admin permissions to run this command.",
+                ephemeral=True,
+            )
+            return
+
+        # Check for existing baseline run unless forcing
+        if not force:
+            with self.bot.leaderboard_db as db:
+                if db.has_baseline_run(leaderboard_name):
+                    await send_discord_message(
+                        interaction,
+                        (
+                            "A baseline run already exists for this leaderboard. "
+                            "Use the 'force' flag to create another."
+                        ),
+                        ephemeral=True,
+                    )
+                    return
+
+        lb_cog = LeaderboardSubmitCog(self.bot)
+
+        await lb_cog.submit(
+            interaction=interaction,
+            leaderboard_name=leaderboard_name,
+            script=None,
+            mode=SubmissionMode.BASELINE,
+            gpu=gpu,
+        )

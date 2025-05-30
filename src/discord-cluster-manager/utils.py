@@ -245,7 +245,10 @@ def build_task_config(
 
         if lang == "py":
             config["main"] = "eval.py"
-
+        args = []
+        if mode == SubmissionMode.BASELINE:
+            submission_content = ""
+        config["args"] = args
         return {
             **config,
             "sources": {
@@ -259,7 +262,6 @@ def build_task_config(
                 all_files[n] = submission_content
             else:
                 all_files[n] = c
-
         common = {
             "lang": task.lang.value,
             "arch": arch,
