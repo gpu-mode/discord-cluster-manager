@@ -1,10 +1,12 @@
 import asyncio
+import base64
 import datetime
 import json
 import math
 import pprint
 import tempfile
 import zipfile
+import zlib
 from typing import Awaitable, Callable, Optional
 
 import requests
@@ -26,6 +28,7 @@ from .launcher import Launcher
 
 logger = setup_logging()
 
+
 def get_timeout(config: dict) -> int:
     mode = config.get("mode")
     sec_map = {
@@ -35,6 +38,7 @@ def get_timeout(config: dict) -> int:
     }
     seconds = sec_map.get(mode) or DEFAULT_GITHUB_TIMEOUT_MINUTES * 60
     return math.ceil(seconds / 60)
+
 
 class GitHubLauncher(Launcher):
     def __init__(self, repo: str, token: str):
@@ -72,7 +76,9 @@ class GitHubLauncher(Launcher):
         run = GitHubRun(self.repo, self.token, selected_workflow)
         logger.info(f"Successfully created GitHub run: {run.run_id}")
 
-        payload = json.dumps(config)
+        payload = base64.b64encode(zlib.compress(json.dumps(config).encode("utf-8"))).decode(
+            "utf-8"
+        )
 
         inputs = {"payload": payload}
         if lang == "py":
@@ -92,9 +98,8 @@ class GitHubLauncher(Launcher):
         timeout = get_timeout(config) + TIMEOUT_BUFFER_MINUTES
         logger.info(f"Waiting for workflow to complete... (timeout: {timeout} minutes)")
         await run.wait_for_completion(
-            lambda x: self.wait_callback(x, status),
-            timeout_minutes=timeout
-            )
+            lambda x: self.wait_callback(x, status), timeout_minutes=timeout
+        )
         await status.update(f"Workflow [{run.run_id}]({run.html_url}) completed")
         logger.info(f"Workflow [{run.run_id}]({run.html_url}) completed")
         await status.push("Downloading artifacts...")
