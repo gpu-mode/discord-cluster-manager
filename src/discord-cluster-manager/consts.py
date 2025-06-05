@@ -97,6 +97,7 @@ class SubmissionMode(Enum):
     LEADERBOARD = "leaderboard"
     PRIVATE = "private"
     SCRIPT = "script"
+    MILESTONE = "milestone"
 
 
 class Language(Enum):
@@ -152,6 +153,6 @@ AMD_REQUIREMENTS = """
 --index-url https://download.pytorch.org/whl/rocm6.2.4
 torch
 """
-
-# A buffer for timeouts to account for github setup time
+SYSTEM_USER_ID = -123
+SYSTEM_USER_NAME = "KernelBot"
 TIMEOUT_BUFFER_MINUTES = 2

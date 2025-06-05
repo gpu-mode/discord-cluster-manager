@@ -296,7 +296,7 @@ def run_single_evaluation(
             tests_file.write(tests)
             tests_file.flush()
             return run_program(call + [mode, tests_file.name], seed=seed, timeout=test_timeout)
-    elif mode in ["benchmark", "profile", "leaderboard"]:
+    elif mode in ["benchmark", "profile", "leaderboard", "milestone"]:
         timeout = ranked_timeout if mode == "leaderboard" else benchmark_timeout
         with tempfile.NamedTemporaryFile("w") as bench_file:
             if ranking_by == "last":
@@ -511,7 +511,7 @@ def run_evaluation(
     require multiple runner calls.
     """
     results: dict[str, EvalResult] = {}
-    if mode in ["test", "benchmark", "profile", "script"]:
+    if mode in ["test", "benchmark", "profile", "script", "milestone"]:
         results[mode] = call(mode=mode)
     elif mode in ["private", "leaderboard"]:
         # first, run the tests
@@ -528,7 +528,7 @@ def run_evaluation(
         # if they pass, run the leaderboard validation
         results["leaderboard"] = call(mode="leaderboard")
     else:
-        raise AssertionError("Invalid mode")
+        raise AssertionError(f"Invalid mode: {mode}")
 
     return results
 
