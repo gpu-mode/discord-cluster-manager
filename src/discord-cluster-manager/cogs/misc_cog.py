@@ -33,7 +33,8 @@ class BotManagerCog(commands.Cog):
             return
 
         try:
-            with psycopg2.connect(DATABASE_URL, sslmode="disable" if DISABLE_SSL else "require") as conn:
+            sslmode = "disable" if DISABLE_SSL else "require"
+            with psycopg2.connect(DATABASE_URL, sslmode=sslmode) as conn:
                 with conn.cursor() as cursor:
                     cursor.execute("SELECT RANDOM()")
                     result = cursor.fetchone()

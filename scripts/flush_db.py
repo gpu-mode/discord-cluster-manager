@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 
-import os
 
 import psycopg2
 from dotenv import load_dotenv
-from psycopg2 import Error
 from env import DATABASE_URL, DISABLE_SSL
+from psycopg2 import Error
 
 
 def flush_database():
