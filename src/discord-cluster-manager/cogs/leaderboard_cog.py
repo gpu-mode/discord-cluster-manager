@@ -5,14 +5,16 @@ from typing import TYPE_CHECKING, List, Optional
 
 import discord
 from consts import (
+    SYSTEM_USER_ID,
     SubmissionMode,
     get_gpu_by_name,
+    get_system_user_name,
 )
 from discord import app_commands
 from discord.ext import commands
 from leaderboard_db import leaderboard_name_autocomplete
 from report import MultiProgressReporter
-from submission import SubmissionRequest, prepare_submission
+from submission import SubmissionRequest, lookup_leaderboard, prepare_submission
 from ui.misc import GPUSelectionView
 from ui.table import create_table
 from utils import (
@@ -37,6 +39,7 @@ class LeaderboardSubmitCog(app_commands.Group):
     def __init__(self, bot: "ClusterBot"):
         super().__init__(name="submit", description="Submit to leaderboard")
         self.bot = bot
+
 
     async def select_gpu_view(
         self,
@@ -63,32 +66,39 @@ class LeaderboardSubmitCog(app_commands.Group):
         self,
         interaction: discord.Interaction,
         leaderboard_name: Optional[str],
-        script: discord.Attachment,
+        script: Optional[discord.Attachment],
         mode: SubmissionMode,
         cmd_gpus: Optional[List[str]],
     ) -> int:
         """
         Called as the main body of a submission to route to the correct runner.
         """
+
         # Read the template file
-        submission_content = await script.read()
-
-        try:
-            submission_content = submission_content.decode()
-        except UnicodeError:
-            await send_discord_message(
-                interaction, "Could not decode your file. Is it UTF-8?", ephemeral=True
-            )
-            return -1
-
+        submission_content = ""
+        if mode != SubmissionMode.MILESTONE:
+            # for milestones we don't have a submission file and instead use the ones in the task
+            submission_content = await script.read()
+            try:
+                submission_content = submission_content.decode()
+            except UnicodeError:
+                await send_discord_message(
+                    interaction, "Could not decode your file. Is it UTF-8?", ephemeral=True
+                )
+                return -1
+        filename = (
+            script.filename
+            if not mode == SubmissionMode.MILESTONE
+            else "performance milestone"
+        )
         req = SubmissionRequest(
             code=submission_content,
-            file_name=script.filename,
+            file_name=filename,
             user_id=interaction.user.id,
             gpus=cmd_gpus,
             leaderboard=leaderboard_name,
         )
-        req = prepare_submission(req, self.bot.leaderboard_db)
+        req = prepare_submission(req, self.bot.leaderboard_db, mode)
 
         # if there is more than one candidate GPU, display UI to let user select,
         # otherwise just run on that GPU
@@ -105,58 +115,192 @@ class LeaderboardSubmitCog(app_commands.Group):
 
         command = self.bot.get_cog("SubmitCog").submit_leaderboard
 
-        user_name = interaction.user.global_name or interaction.user.name
+        # For milestone submissions, use consistent system user
+        if mode == SubmissionMode.MILESTONE:
+            # Get the milestone name from the task
+            leaderboard = lookup_leaderboard(leaderboard_name, self.bot.leaderboard_db)
+            milestone_name = None
+            if leaderboard["task"].milestones:
+                milestone_name = leaderboard["task"].milestones[0]["milestone_name"]
+            user_name, user_id = get_system_user_name(milestone_name)
+        else:
+            user_id = interaction.user.id
+            user_name = interaction.user.global_name or interaction.user.name
+
+        run_msg = (
+            f"Milestone submissions for `{req.leaderboard}`"
+            if mode == SubmissionMode.MILESTONE
+            else f"Submission: `{filename}` for `{req.leaderboard}`"
+        )
+        reporter = MultiProgressReporter(interaction, run_msg)
+
+        try:
+            if mode == SubmissionMode.MILESTONE:
+                submission_ids = await self._handle_milestone_submissions(
+                    req, user_id, user_name, selected_gpus, reporter, command
+                )
+                return submission_ids
+            else:
+                sub_id = await self._handle_regular_submission(
+                    req, submission_content, filename, user_id, user_name,
+                    selected_gpus, reporter, command, mode
+                )
+
+                if mode == SubmissionMode.LEADERBOARD:
+                    await self.post_submit_hook(interaction, sub_id)
+                return [sub_id]
+        finally:
+            # Mark all submissions as done
+            if mode == SubmissionMode.MILESTONE:
+                # submission_ids is a list for milestones
+                if 'submission_ids' in locals():
+                    with self.bot.leaderboard_db as db:
+                        for sub_id in submission_ids:
+                            db.mark_submission_done(sub_id)
+            else:
+                # sub_id is a single ID for regular submissions
+                if 'sub_id' in locals():
+                    with self.bot.leaderboard_db as db:
+                        db.mark_submission_done(sub_id)
+
+    async def _handle_milestone_submissions(
+        self, req, user_id, user_name, selected_gpus, reporter, command
+    ):
+        """Handle milestone submissions with separate submission IDs for each milestone"""
+        milestones = req.task.milestones
+        files = req.task.files
+
+        # Ensure system user exists in database for milestone submissions
+        with self.bot.leaderboard_db as db:
+            # Check if system user exists
+            db.cursor.execute(
+                """
+                SELECT 1 FROM leaderboard.user_info WHERE id = %s
+                """,
+                (str(SYSTEM_USER_ID),),
+            )
+            if not db.cursor.fetchone():
+                # Create system user
+                db.cursor.execute(
+                    """
+                    INSERT INTO leaderboard.user_info (id, user_name)
+                    VALUES (%s, %s)
+                    """,
+                    (str(SYSTEM_USER_ID), get_system_user_name(None)),
+                )
+                db.connection.commit()
+
+        # Sync milestones to database
+        leaderboard_item = lookup_leaderboard(req.leaderboard, self.bot.leaderboard_db)
+        with self.bot.leaderboard_db as db:
+            existing_milestones = db.get_leaderboard_milestones(leaderboard_item["id"])
+            existing_names = {m["milestone_name"] for m in existing_milestones}
+
+            # Create any new milestones in the database
+            for milestone in milestones:
+                if milestone["milestone_name"] not in existing_names:
+                    db.create_milestone(
+                        leaderboard_item["id"],
+                        milestone["milestone_name"],
+                        milestone["filename"],
+                        description=milestone.get(
+                            "description",
+                            f"Milestone for {milestone['filename']}"
+                        )
+                    )
+
+        # Create separate submission for each milestone
+        submission_ids = []
+        tasks = []
+
+        for milestone in milestones:
+            milestone_filename = milestone["filename"]
+            milestone_code = files[milestone_filename]
+            milestone_name = milestone["milestone_name"]
+
+            # Create separate submission entry for each milestone
+            with self.bot.leaderboard_db as db:
+                user_name, user_id = get_system_user_name(milestone_name)
+                sub_id = db.create_submission(
+                    leaderboard=req.leaderboard,
+                    file_name=milestone_filename,
+                    code=milestone_code,
+                    user_id=user_id,
+                    time=datetime.now(),
+                    user_name=user_name,
+                )
+            submission_ids.append(sub_id)
+
+            # Create tasks for this milestone on all selected GPUs
+            for gpu in selected_gpus:
+                tasks.append(
+                    command(
+                        sub_id,
+                        milestone_code,
+                        milestone_filename,
+                        gpu,
+                        reporter.add_run(
+                            f"{gpu.name} on {gpu.runner} for milestone "
+                            f"{milestone_name} (#{sub_id})"
+                        ),
+                        req.task,
+                        SubmissionMode.MILESTONE,
+                        None,
+                    )
+                )
+
+        await reporter.show()
+        await asyncio.gather(*tasks)
+        return submission_ids
+
+    async def _handle_regular_submission(
+        self, req, submission_content, filename, user_id, user_name,
+        selected_gpus, reporter, command, mode
+    ):
+        """Handle regular submissions with a single submission ID"""
         # Create a submission entry in the database
         with self.bot.leaderboard_db as db:
             sub_id = db.create_submission(
                 leaderboard=req.leaderboard,
-                file_name=script.filename,
+                file_name=filename,
                 code=submission_content,
-                user_id=interaction.user.id,
+                user_id=user_id,
                 time=datetime.now(),
                 user_name=user_name,
             )
 
-        run_msg = f"Submission **{sub_id}**: `{script.filename}` for `{req.leaderboard}`"
-        reporter = MultiProgressReporter(interaction, run_msg)
-        try:
-            tasks = [
+        tasks = [
+            command(
+                sub_id,
+                submission_content,
+                filename,
+                gpu,
+                reporter.add_run(f"{gpu.name} on {gpu.runner}"),
+                req.task,
+                mode,
+                None,
+            )
+            for gpu in selected_gpus
+        ]
+
+        # Add secret run for leaderboard submissions
+        if mode == SubmissionMode.LEADERBOARD:
+            tasks += [
                 command(
                     sub_id,
                     submission_content,
-                    script.filename,
+                    filename,
                     gpu,
-                    reporter.add_run(f"{gpu.name} on {gpu.runner}"),
+                    reporter.add_run(f"{gpu.name} on {gpu.runner} (secret)"),
                     req.task,
-                    mode,
-                    None,
+                    SubmissionMode.PRIVATE,
+                    req.secret_seed,
                 )
                 for gpu in selected_gpus
             ]
 
-            # also schedule secret run
-            if mode == SubmissionMode.LEADERBOARD:
-                tasks += [
-                    command(
-                        sub_id,
-                        submission_content,
-                        script.filename,
-                        gpu,
-                        reporter.add_run(f"{gpu.name} on {gpu.runner} (secret)"),
-                        req.task,
-                        SubmissionMode.PRIVATE,
-                        req.secret_seed,
-                    )
-                    for gpu in selected_gpus
-                ]
-            await reporter.show()
-            await asyncio.gather(*tasks)
-        finally:
-            with self.bot.leaderboard_db as db:
-                db.mark_submission_done(sub_id)
-
-        if mode == SubmissionMode.LEADERBOARD:
-            await self.post_submit_hook(interaction, sub_id)
+        await reporter.show()
+        await asyncio.gather(*tasks)
         return sub_id
 
     def generate_run_verdict(self, run: RunItem, sub_data: SubmissionItem):
@@ -224,10 +368,18 @@ class LeaderboardSubmitCog(app_commands.Group):
         self,
         interaction: discord.Interaction,
         leaderboard_name: Optional[str],
-        script: discord.Attachment,
+        script: Optional[discord.Attachment],
         mode: SubmissionMode,
         gpu: Optional[str],
     ):
+
+        if mode != SubmissionMode.MILESTONE and script is None:
+            await interaction.response.send_message(
+                "Script is required for non-milestone submissions.",
+                ephemeral=True,
+            )
+            return
+
         if not self.bot.accepts_jobs:
             await send_discord_message(
                 interaction,
@@ -236,8 +388,10 @@ class LeaderboardSubmitCog(app_commands.Group):
             )
             return
 
-        if gpu is not None:
+        if gpu is not None and gpu.strip():
             gpu = [gpu.strip() for gpu in gpu.split(",")]
+        else:
+            gpu = None
 
         return await self.on_submit_hook(interaction, leaderboard_name, script, mode, gpu)
 
@@ -278,6 +432,8 @@ class LeaderboardSubmitCog(app_commands.Group):
         return await self.submit(
             interaction, leaderboard_name, script, mode=SubmissionMode.BENCHMARK, gpu=gpu
         )
+
+
 
     @app_commands.command(name="profile", description="Start a profiling run")
     @app_commands.describe(
