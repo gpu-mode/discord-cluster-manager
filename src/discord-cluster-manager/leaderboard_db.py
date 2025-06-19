@@ -57,7 +57,7 @@ class LeaderboardDB:
         self.cursor = None
         self.connection = None
 
-    def __enter__(self):
+    def __enter__(self) -> "LeaderboardDB":
         """Context manager entry"""
         if self.connection is not None:
             self.refcount += 1
@@ -66,7 +66,8 @@ class LeaderboardDB:
         if self.connect():
             self.refcount = 1
             return self
-        return None
+
+        raise KernelBotError("Could not connect to database", code=500)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit"""
@@ -367,28 +368,31 @@ class LeaderboardDB:
 
         return leaderboards
 
-    def get_leaderboard_gpu_types(self, leaderboard_name: str) -> List[str] | None:
+    def get_leaderboard_gpu_types(self, leaderboard_name: str) -> List[str]:
         self.cursor.execute(
             """
-            SELECT *
-            FROM leaderboard.gpu_type
-            WHERE leaderboard_id = (
-                SELECT id
-                FROM leaderboard.leaderboard
-                WHERE name = %s
-            )
+            SELECT id
+            FROM leaderboard.leaderboard
+            WHERE name = %s
             """,
             (leaderboard_name,),
         )
+        lb_id = self.cursor.fetchone()
+        if lb_id is None:
+            raise LeaderboardDoesNotExist(leaderboard_name)
 
-        gpu_types = [x[1] for x in self.cursor.fetchall()]
+        self.cursor.execute(
+            """
+            SELECT gpu_type
+            FROM leaderboard.gpu_type
+            WHERE leaderboard_id = %s
+            """,
+            (lb_id[0],),
+        )
 
-        if gpu_types:
-            return gpu_types
-        else:
-            return None
+        return [x[0] for x in self.cursor.fetchall()]
 
-    def get_leaderboard(self, leaderboard_name: str) -> "LeaderboardItem | None":
+    def get_leaderboard(self, leaderboard_name: str) -> "LeaderboardItem":
         self.cursor.execute(
             """
             SELECT id, name, deadline, task, creator_id, forum_id, secret_seed
@@ -413,7 +417,7 @@ class LeaderboardDB:
                 gpu_types=self.get_leaderboard_gpu_types(res[1]),
             )
         else:
-            return None
+            raise LeaderboardDoesNotExist(leaderboard_name)
 
     def get_leaderboard_submissions(
         self,
@@ -937,3 +941,8 @@ class SubmissionItem(TypedDict):
     done: bool
     code: str
     runs: List[RunItem]
+
+
+class LeaderboardDoesNotExist(KernelBotError):
+    def __init__(self, name: str):
+        super().__init__(message=f"Leaderboard `{name}` does not exist.", code=404)

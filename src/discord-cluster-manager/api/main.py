@@ -10,12 +10,13 @@ from typing import Annotated, Optional
 
 from backend import KernelBackend
 from consts import SubmissionMode
-from fastapi import Depends, FastAPI, Header, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse, StreamingResponse
 from leaderboard_db import LeaderboardRankedEntry
 from submission import SubmissionRequest
+from utils import KernelBotError
 
-from .utils import _handle_discord_oauth, _handle_github_oauth, _run_submission
+from .api_utils import _handle_discord_oauth, _handle_github_oauth, _run_submission
 
 # yes, we do want  ... = Depends() in function signatures
 # ruff: noqa: B008
@@ -60,18 +61,18 @@ def init_api(_backend_instance: KernelBackend):
     backend_instance = _backend_instance
 
 
+@app.exception_handler(KernelBotError)
+async def kernel_bot_error_handler(req: Request, exc: KernelBotError):
+    return JSONResponse(status_code=exc.http_code, content={"message": str(exc)})
+
+
 @contextmanager
 def get_db():
     """Database context manager with guaranteed error handling"""
     if not backend_instance:
         raise HTTPException(status_code=500, detail="Bot instance not initialized")
 
-    if not hasattr(backend_instance, "leaderboard_db"):
-        raise HTTPException(status_code=500, detail="Database not initialized")
-
     with backend_instance.db as db:
-        if db is None:
-            raise HTTPException(status_code=500, detail="Database connection failed")
         yield db
 
 
@@ -347,18 +348,6 @@ async def run_submission(  # noqa: C901
     try:
         with db_context as db:
             leaderboard_item = db.get_leaderboard(leaderboard_name)
-            if not leaderboard_item:
-                all_leaderboards = [lb["name"] for lb in db.get_leaderboards()]
-                if leaderboard_name not in all_leaderboards:
-                    raise HTTPException(
-                        status_code=404, detail=f"Leaderboard '{leaderboard_name}' not found."
-                    )
-                else:
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Error retrieving details for leaderboard '{leaderboard_name}'.",
-                    )
-
             gpus = leaderboard_item.get("gpu_types", [])
             if gpu_type not in gpus:
                 supported_gpus = ", ".join(gpus) if gpus else "None"
@@ -449,20 +438,10 @@ async def get_gpus(leaderboard_name: str, db_context=Depends(get_db)) -> list[st
     await simple_rate_limit()
     try:
         with db_context as db:
-            # Validate leaderboard exists first
-            leaderboard_names = [x["name"] for x in db.get_leaderboards()]
-            if leaderboard_name not in leaderboard_names:
-                raise HTTPException(status_code=400, detail="Invalid leaderboard name")
-
-            gpu_types = db.get_leaderboard_gpu_types(leaderboard_name)
-            if gpu_types is None:  # Handle case where function returns None
-                return []
+            return db.get_leaderboard_gpu_types(leaderboard_name)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching GPU data: {e}") from e
-
-    # Filter based on known runners
-    return gpu_types
 
 
 @app.get("/submissions/{leaderboard_name}/{gpu_name}")
