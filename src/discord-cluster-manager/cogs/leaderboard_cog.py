@@ -114,12 +114,24 @@ class LeaderboardSubmitCog(app_commands.Group):
             )
 
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.channel_id != self.bot.leaderboard_submissions_id:
+        # Only check for role if the command is the ranked submission command
+        if interaction.command and interaction.command.name == "ranked":
+            allowed_roles = ["Leaderboard Participant", "Leaderboard Creator", "Leaderboard Admin"]
+
+            for role_name in allowed_roles:
+                role = discord.utils.get(interaction.guild.roles, name=role_name)
+                if role and role in interaction.user.roles:
+                    return True
+
             await interaction.response.send_message(
-                f"Submissions are only allowed in <#{self.bot.leaderboard_submissions_id}> channel",
+                "You need the **Leaderboard Participant** role to make ranked submissions. "
+                "Please go to the #start-here channel and react with a "
+                "robot emoji to the Carl-Bot message to get the role.",
                 ephemeral=True,
             )
             return False
+
+        # Allow all other commands without role check
         return True
 
     async def submit(
