@@ -30,7 +30,7 @@ cuda_image = (
         "packaging~=25.0",
         "numpy~=2.3",
         "pytest",
-
+        "PyYAML",
     )
     .pip_install(
         "torch~=2.7",

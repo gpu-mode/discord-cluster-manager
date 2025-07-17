@@ -2,12 +2,12 @@
 """
 Modal CI test runner - runs key test scenarios on Modal
 """
+import logging
 import sys
 from pathlib import Path
 
 import modal
 
-sys.path.append("src")
 from libkernelbot.consts import ExitCode, SubmissionMode
 from libkernelbot.task import build_task_config, make_task_definition
 
@@ -160,6 +160,7 @@ def main():
         print("\n🎉 All Modal tests passed!")
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
+        logging.exception(e)
         sys.exit(1)
 
 

@@ -2,6 +2,7 @@ import copy
 import dataclasses
 import json
 import logging
+import yaml
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -105,8 +106,6 @@ class LeaderboardDefinition:
 
 
 def make_task_definition(yaml_file: str | Path) -> LeaderboardDefinition:
-    import yaml
-
     if Path(yaml_file).is_dir():
         yaml_file = Path(yaml_file) / "task.yml"
 
