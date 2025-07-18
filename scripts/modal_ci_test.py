@@ -2,13 +2,14 @@
 """
 Modal CI test runner - runs key test scenarios on Modal
 """
+
 import logging
 import sys
 from pathlib import Path
 
 import modal
 
-from libkernelbot.consts import ExitCode, SubmissionMode
+from libkernelbot.consts import SubmissionMode
 from libkernelbot.task import build_task_config, make_task_definition
 
 

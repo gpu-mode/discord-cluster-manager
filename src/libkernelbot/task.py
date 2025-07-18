@@ -2,9 +2,10 @@ import copy
 import dataclasses
 import json
 import logging
-import yaml
 from pathlib import Path
 from typing import Dict, Optional, Union
+
+import yaml
 
 from libkernelbot.consts import Language, RankCriterion, SubmissionMode
 from libkernelbot.utils import KernelBotError
