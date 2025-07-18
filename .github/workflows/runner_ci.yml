@@ -25,11 +25,22 @@ jobs:
       - name: Install dependencies
         run: |
           pip install modal
-          pip install -r requirements.txt
+
+      - name: Deploy in test environment
+        run: |
+          modal config set-environment test
+          modal deploy src/runners/modal_runner_archs.py
+        env:
+          PYTHONPATH: src
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
 
       - name: Run Modal tests
         run: |
+          pip install PyYAML
+          modal config set-environment test
           python scripts/modal_ci_test.py
         env:
+          PYTHONPATH: src
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}

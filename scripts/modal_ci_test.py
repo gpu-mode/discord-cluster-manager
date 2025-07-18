@@ -2,21 +2,15 @@
 """
 Modal CI test runner - runs key test scenarios on Modal
 """
-import os
+
+import logging
 import sys
 from pathlib import Path
 
 import modal
 
-# Change to the correct directory
-if os.path.basename(os.getcwd()) == "scripts":
-    os.chdir("..")
-
-# Add the src directory to Python path for Modal deserialization
-sys.path.append("src/discord-cluster-manager")
-
-from consts import SubmissionMode
-from task import build_task_config, make_task_definition
+from libkernelbot.consts import SubmissionMode
+from libkernelbot.task import build_task_config, make_task_definition
 
 
 def test_cuda_correct():
@@ -167,6 +161,7 @@ def main():
         print("\n🎉 All Modal tests passed!")
     except Exception as e:
         print(f"\n❌ Test failed: {e}")
+        logging.exception(e)
         sys.exit(1)
 
 

@@ -11,6 +11,7 @@ ruff
 pre-commit
 better_profanity
 pytest
+PyYAML
 
 # api
 fastapi[all] # install all to avoid random bugs
