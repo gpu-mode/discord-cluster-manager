@@ -5,7 +5,13 @@ from typing import Dict, List, Optional
 
 import psycopg2
 
-from libkernelbot.db_types import LeaderboardItem, LeaderboardRankedEntry, RunItem, SubmissionItem
+from libkernelbot.db_types import (
+    LeaderboardItem,
+    LeaderboardRankedEntry,
+    MilestoneItem,
+    RunItem,
+    SubmissionItem,
+)
 from libkernelbot.run_eval import CompileResult, RunResult, SystemInfo
 from libkernelbot.task import LeaderboardDefinition, LeaderboardTask
 from libkernelbot.utils import (
@@ -238,6 +244,113 @@ class LeaderboardDB:
             logger.exception("Could not delete leaderboard %s.", leaderboard_name, exc_info=e)
             raise KernelBotError(f"Could not delete leaderboard {leaderboard_name}.") from e
 
+    def create_milestone(
+        self,
+        leaderboard_id: int,
+        name: str,
+        code: str,
+        description: str = None,
+        exclude_gpus: list[str] = None,
+    ) -> int:
+        """Create a new milestone for a leaderboard"""
+        if exclude_gpus is None:
+            exclude = ""
+        else:
+            exclude = str.join(";", exclude_gpus)
+        try:
+            self.cursor.execute(
+                """
+                INSERT INTO leaderboard.milestones (
+                    leaderboard_id, name, code, description, exclude_gpus
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (leaderboard_id, name, code, description, exclude),
+            )
+            milestone_id = self.cursor.fetchone()[0]
+            self.connection.commit()
+            return milestone_id
+        except psycopg2.Error as e:
+            self.connection.rollback()
+            logger.exception("Error creating milestone", exc_info=e)
+            raise KernelBotError("Error creating milestone") from e
+
+    def get_leaderboard_milestones(self, leaderboard_id: int) -> "list[MilestoneItem]":
+        """Get all milestones for a leaderboard"""
+        self.cursor.execute(
+            """
+            SELECT id, name, code, description, created_at, exclude_gpus
+            FROM leaderboard.milestones
+            WHERE leaderboard_id = %s
+            ORDER BY created_at
+            """,
+            (leaderboard_id,),
+        )
+        return [
+            {
+                "id": row[0],
+                "name": row[1],
+                "code": row[2],
+                "description": row[3],
+                "created_at": row[4],
+                "exclude_gpus": str.split(row[5], ";"),
+            }
+            for row in self.cursor.fetchall()
+        ]
+
+    def delete_milestone_runs(self, leaderboard_name: str):
+        self.cursor.execute(
+            """
+            DELETE FROM leaderboard.runs
+            WHERE milestone_id IN (
+                SELECT leaderboard.milestones.id
+                FROM leaderboard.milestones
+                WHERE leaderboard_id = %s
+            );
+            """,
+            (leaderboard_name,),
+        )
+        self.connection.commit()
+
+    def get_runs_generic(
+        self, *, milestone_id: Optional[int] = None, submission_id: Optional[int] = None
+    ) -> List["RunItem"]:
+        if milestone_id is not None:
+            key = "milestone_id"
+            value = milestone_id
+            if submission_id is not None:
+                logger.error("milestone_id and submission_id specified simultaneously")
+                raise KernelBotError("`milestone_id` and `submission_id` specified simultaneously")
+        else:
+            key = "submission_id"
+            value = submission_id
+        query = f"""
+                SELECT start_time, end_time, mode, secret, runner, score,
+                       passed, compilation, meta, result, system_info
+                FROM leaderboard.runs
+                WHERE {key} = %s
+                """
+        self.cursor.execute(query, (value,))
+        runs = self.cursor.fetchall()
+
+        return [
+            RunItem(
+                start_time=r[0],
+                end_time=r[1],
+                mode=r[2],
+                secret=r[3],
+                runner=r[4],
+                score=r[5],
+                passed=r[6],
+                compilation=r[7],
+                meta=r[8],
+                result=r[9],
+                system=r[10],
+            )
+            for r in runs
+        ]
+
     def create_submission(
         self,
         leaderboard: str,
@@ -342,7 +455,9 @@ class LeaderboardDB:
 
     def create_submission_run(
         self,
-        submission: int,
+        *,
+        submission: Optional[int] = None,
+        milestone: Optional[int] = None,
         start: datetime.datetime,
         end: datetime.datetime,
         mode: str,
@@ -363,13 +478,14 @@ class LeaderboardDB:
             }
             self.cursor.execute(
                 """
-                INSERT INTO leaderboard.runs (submission_id, start_time, end_time, mode,
-                secret, runner, score, passed, compilation, meta, result, system_info
+                INSERT INTO leaderboard.runs (submission_id, milestone_id, start_time, end_time,
+                mode, secret, runner, score, passed, compilation, meta, result, system_info
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     submission,
+                    milestone,
                     start,
                     end,
                     mode,
@@ -749,33 +865,6 @@ class LeaderboardDB:
         if submission is None:
             return None
 
-        # OK, now get the runs
-        query = """
-                SELECT start_time, end_time, mode, secret, runner, score,
-                       passed, compilation, meta, result, system_info
-                FROM leaderboard.runs
-                WHERE submission_id = %s
-                """
-        self.cursor.execute(query, (submission_id,))
-        runs = self.cursor.fetchall()
-
-        runs = [
-            RunItem(
-                start_time=r[0],
-                end_time=r[1],
-                mode=r[2],
-                secret=r[3],
-                runner=r[4],
-                score=r[5],
-                passed=r[6],
-                compilation=r[7],
-                meta=r[8],
-                result=r[9],
-                system=r[10],
-            )
-            for r in runs
-        ]
-
         return SubmissionItem(
             submission_id=submission_id,
             leaderboard_id=submission[0],
@@ -785,7 +874,7 @@ class LeaderboardDB:
             submission_time=submission[4],
             done=submission[5],
             code=submission[6],
-            runs=runs,
+            runs=self.get_runs_generic(submission_id=submission_id),
         )
 
     def get_leaderboard_submission_count(
