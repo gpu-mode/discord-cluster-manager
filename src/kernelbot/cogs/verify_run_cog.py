@@ -292,8 +292,8 @@ class VerifyRunCog(commands.Cog):
             amd = get_gpu_by_name("mi300")
             t4 = get_gpu_by_name("T4")
 
-            reporter = MultiProgressReporterDiscord("Verifying")
-            await reporter.show(interaction)
+            reporter = MultiProgressReporterDiscord(interaction)
+            await reporter.show("Verifying")
 
             results = await asyncio.gather(
                 self.verify_github_run(interaction, nvidia, reporter.add_run("NVIDIA-PY"), "py"),
