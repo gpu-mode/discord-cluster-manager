@@ -308,6 +308,13 @@ class LeaderboardCog(commands.Cog):
             name="template", description="Get a starter template file for a task"
         )(self.get_task_template)
 
+        self.get_task_milestones = bot.leaderboard_group.command(
+            name="milestones", description="Show milestone performances"
+        )(self.get_task_milestones)
+        self.show_milestone_result = bot.leaderboard_group.command(
+            name="milestone-result", description="Show detailed results of a milestone run"
+        )(self.show_milestone_result)
+
         self.get_submission_by_id = bot.leaderboard_group.command(
             name="get-submission", description="Retrieve one of your past submissions"
         )(self.get_submission_by_id)
@@ -587,6 +594,58 @@ class LeaderboardCog(commands.Cog):
                 ephemeral=True,
             )
             return
+
+    @app_commands.describe(
+        leaderboard_name="Name of Leaderboard",
+        gpu="Select GPU. Leave empty for all GPUs.",
+    )
+    @app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
+    @with_error_handling
+    async def get_task_milestones(
+        self,
+        interaction: discord.Interaction,
+        leaderboard_name: str,
+        gpu: Optional[str] = None,
+    ):
+        await interaction.response.defer(ephemeral=True)
+
+        try:
+            await send_discord_message(
+                interaction,
+                self.bot.backend.get_milestone_overview(leaderboard_name, gpu),
+                ephemeral=True,
+            )
+
+        except Exception as E:
+            logger.exception("Error fetching milestones for %s", leaderboard_name, exc_info=E)
+            await send_discord_message(
+                interaction,
+                f"Could not fetch milestones for leaderboard `{leaderboard_name}`",
+                ephemeral=True,
+            )
+            return
+
+    @app_commands.describe(
+        leaderboard_name="Name of Leaderboard",
+        milestone_name="Name of Milestone",
+        gpu="Select GPU. Leave empty for all GPUs.",
+    )
+    @app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
+    @with_error_handling
+    async def show_milestone_result(
+        self,
+        interaction: discord.Interaction,
+        leaderboard_name: str,
+        milestone_name: str,
+        gpu: Optional[str] = None,
+    ):
+        await interaction.response.defer(ephemeral=True)
+        for message in self.bot.backend.get_milestone_result(leaderboard_name, milestone_name, gpu):
+            await send_discord_message(
+                interaction,
+                message,
+                ephemeral=True,
+            )
 
     @discord.app_commands.describe(leaderboard_name="Name of the leaderboard")
     @app_commands.autocomplete(leaderboard_name=leaderboard_name_autocomplete)
