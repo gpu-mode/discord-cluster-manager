@@ -1,4 +1,5 @@
 import base64
+import copy
 import dataclasses
 import multiprocessing
 import re
@@ -65,7 +66,7 @@ def get_test_cases(file_name: str, seed: Optional[int]) -> list[TestCase]:
 
     tests = []
     lines = content.splitlines()
-    match = r"\s*([a-zA-Z]+):\s*([a-zA-Z]+|[+-]?[0-9]+)\s*"
+    match = r"\s*([a-zA-Z_]+):\s*([a-zA-Z]+|[+-]?[0-9]+)\s*"
     for line in lines:
         parts = line.split(";")
         case = {}
@@ -123,18 +124,19 @@ def calculate_stats(durations: list[int]):
                  worst=float(worst))
 
 
-def _clone_data(data):
+def _clone_data(data, rank: int):
     """
     Recursively goes through data and clones all tensors.
     """
     if isinstance(data, tuple):
-        return tuple(_clone_data(x) for x in data)
+        return tuple(_clone_data(x, rank) for x in data)
     elif isinstance(data, list):
-        return [_clone_data(x) for x in data]
+        return [_clone_data(x, rank) for x in data]
     elif isinstance(data, dict):
-        return {k: _clone_data(v) for k, v in data.items()}
+        return {k: _clone_data(v, rank) for k, v in data.items()}
     elif isinstance(data, torch.Tensor):
-        return data.clone()
+        device = f"cuda:{rank}"
+        return data.clone().to(device)
     else:
         return data
 
@@ -157,16 +159,60 @@ def _run_single_test(test: TestCase):
     from submission import custom_kernel
     data = generate_input(**test.args)
     torch.cuda.synchronize()
-    submission_output = custom_kernel(_clone_data(data))
+    submission_output = custom_kernel(_clone_data(data, 0))
     torch.cuda.synchronize()
     return wrap_check_implementation(data, submission_output)
+
+
+def _run_distributed_test(test: TestCase, rank: int):
+    """
+    Runs a single test case. Do not call directly
+    """
+    from submission import custom_kernel
+    import torch.distributed as dist
+    world_size = test.args["world_size"]
+    os.environ["MASTER_ADDR"] = "127.0.0.1"
+    os.environ["MASTER_PORT"] = "12356"
+    dist.init_process_group("nccl", init_method="env://", rank=rank, world_size=world_size)
+    try:
+        data = generate_input(**test.args, rank=rank)
+        torch.cuda.synchronize()
+        submission_output = custom_kernel(_clone_data(data, rank))
+        torch.cuda.synchronize()
+        return wrap_check_implementation(data, submission_output)
+    finally:
+        dist.destroy_process_group()
+
+
+def run_multi_gpu_test(pool: multiprocessing.Pool, test: TestCase, world_size: int):
+    """
+    Runs a single test in another process.
+    """
+    rets = []
+    # world_size is a mandatory argument for multi-gpu tests
+    for i in range(world_size):
+        rets.append(
+            pool.apply_async(
+                _run_distributed_test,
+                args=(test, i),
+            )
+        )
+    rets = [el.get() for el in rets]
+
+    correct = all(ret[0] for ret in rets)
+    error_messages = str.join("\n", [f"rank {rank}: {ret[1]}" for rank, ret in enumerate(rets) if not ret[0]])
+    return correct, error_messages
 
 
 def run_single_test(pool: multiprocessing.Pool, test: TestCase):
     """
     Runs a single test in another process.
     """
-    return pool.apply(_run_single_test, (test,))
+    world_size = test.args.get("world_size", None)
+    if world_size is None:
+        return pool.apply(_run_single_test, (test, 0, 0))
+    else:
+        return run_multi_gpu_test(pool, test, world_size)
 
 
 def run_testing(logger: PopcornOutput, pool: multiprocessing.Pool, tests: list[TestCase]):
@@ -345,6 +391,7 @@ def main():
     mode = sys.argv[1]
     seed = os.getenv("POPCORN_SEED")
     os.unsetenv("POPCORN_SEED")
+    n_gpus = int(os.getenv("POPCORN_GPUS", "1"))
     seed = int(seed) if seed else None
     set_seed(seed or 42)
     tests = get_test_cases(sys.argv[2], seed)
@@ -352,7 +399,7 @@ def main():
     with PopcornOutput(int(fd)) as logger:
         import multiprocessing
         mp_context = multiprocessing.get_context('spawn')
-        with mp_context.Pool(1) as pool:
+        with mp_context.Pool(n_gpus) as pool:
             if mode == "test":
                 return run_testing(logger, pool, tests)
             if mode == "benchmark":
