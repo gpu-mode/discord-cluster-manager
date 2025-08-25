@@ -32,15 +32,28 @@ class Log:
     content: str
 
 
+@dataclasses.dataclass
+class File:
+    """
+    File represents an attachment that is added to the report. This
+    is used for profiling results.
+    """
+    filename: str
+    content: bytes
+
+
 class RunResultReport:
     def __init__(self):
-        self.data: List[Text | Log] = []
+        self.data: List[Text | Log | File] = []
 
     def add_text(self, section: str):
         self.data.append(Text(section))
 
     def add_log(self, header: str, log: str):
         self.data.append(Log(header, log))
+
+    def add_file(self, filename: str, content: bytes):
+        self.data.append(File(filename, content))
 
 
 def _generate_compile_report(reporter: "RunResultReport", comp: CompileResult):
@@ -264,6 +277,7 @@ def generate_system_info(system: SystemInfo):
 Running on:
 * GPU: `{system.gpu}`
 * CPU: `{system.cpu}`
+* Runtime: `{system.runtime}`
 * Platform: `{system.platform}`
 * Torch: `{system.torch}`
 """
@@ -318,6 +332,10 @@ def generate_report(result: FullResult) -> RunResultReport:  # noqa: C901
             "Profiling",
             make_profile_log(prof_run.run),
         )
+
+        if prof_run.run.profile_data is not None:
+            profile_data = base64.b64decode(prof_run.run.profile_data)
+            report.add_file('profile-data.zip', profile_data)
 
     if "leaderboard" in runs:
         bench_run = runs["leaderboard"]

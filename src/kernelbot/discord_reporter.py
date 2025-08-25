@@ -1,7 +1,10 @@
+import io
+
 import discord
 from discord_utils import _send_split_log
 
 from libkernelbot.report import (
+    File,
     Log,
     MultiProgressReporter,
     RunProgressReporter,
@@ -61,6 +64,7 @@ class RunProgressReporterDiscord(RunProgressReporter):
         )
         await thread.add_user(self.interaction.user)
         message = ""
+        files = []
         for part in report.data:
             if isinstance(part, Text):
                 if len(message) + len(part.text) > 1900:
@@ -69,8 +73,16 @@ class RunProgressReporterDiscord(RunProgressReporter):
                 message += part.text
             elif isinstance(part, Log):
                 message = await _send_split_log(thread, message, part.header, part.content)
+            elif isinstance(part, File):
+                files.append(discord.File(
+                    io.BytesIO(part.content),
+                    filename=part.filename,
+                ))
 
         if len(message) > 0:
             await thread.send(message)
+
+        if len(files) > 0:
+            await thread.send(files=files)
 
         await self.push(f"See results at {thread.jump_url}")

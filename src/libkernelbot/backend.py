@@ -217,7 +217,9 @@ class KernelBackend:
                     generate_report(result),
                 )
             except Exception as E:
-                logger.error("Error generating report. Result: %s", result, exc_info=E)
+                # With profiling results, the log can get very long. Cut it off its its longer than
+                # a few 1000 characters.
+                logger.error("Error generating report. Result: %s", str(result)[:1000], exc_info=E)
                 raise
 
         return result
