@@ -1,11 +1,14 @@
+import base64
 import dataclasses
 import datetime
 import functools
+import io
 import os
 import shlex
 import subprocess
 import tempfile
 import time
+import zipfile
 from pathlib import Path
 from types import NoneType
 from typing import Optional, Protocol, Union
@@ -280,6 +283,64 @@ def run_program(args: list[str], seed: Optional[int], timeout: int) -> RunResult
     )
 
 
+def profile_program(
+    system: SystemInfo,
+    call: list[str],
+    seed: Optional[int],
+    timeout: int,
+) -> RunResult:
+    if system.runtime == "ROCm":
+        with tempfile.TemporaryDirectory() as d:
+            # Wrap program in rocprof
+            call = [
+                "rocprofv3",
+                "--log-level",
+                "fatal",
+                "--hip-trace",
+                "--kernel-trace",
+                "--rccl-trace",
+                "--marker-trace",
+                "--hip-trace",
+                "--memory-copy-trace",
+                # TODO(Robin): New? Doesn't work in the runner
+                # "--memory-allocation-trace",
+                "--scratch-memory-trace",
+                # TODO(Robin): The HSA trace is very large. Skip for now, maybe make optional later?
+                # "--hsa-trace",
+                "--output-format",
+                "pftrace",
+                "csv",
+                "-d",
+                d,
+                # Just store the files as %pid%_tracename.ext instead of putting them in an
+                # additional directory named after the hostname.
+                "-o",
+                "%pid%",
+                "--",
+            ] + call
+
+            result = run_program(call, seed=seed, timeout=timeout)
+
+            # If successful, gather the results from rocPROF and zip them. We return these as
+            # profiling results.
+            if result.success:
+                profile_data = io.BytesIO()
+                src = Path(d)
+                basepath = Path('profile-data')
+                with zipfile.ZipFile(profile_data, 'w', zipfile.ZIP_DEFLATED) as zip:
+                    # Add files from the top level directory. We don't expect any nested files
+                    # here, just a bunch of .csv and .pftrace files.
+                    for f in src.iterdir():
+                        if f.is_file():
+                            zip.write(f, basepath / f.relative_to(src))
+
+                result.profile_data = base64.b64encode(profile_data.getvalue()).decode('ascii')
+
+            return result
+    else:
+        # TODO: Implement profiling for other platforms
+        return run_program(call, seed=seed, timeout=timeout)
+
 def run_single_evaluation(
     system: SystemInfo,
     call: list[str],
@@ -312,6 +373,9 @@ def run_single_evaluation(
         cases.flush()
 
         call += [mode, cases.name]
+
+        if mode == "profile":
+            return profile_program(system, call, seed=seed, timeout=timeout)
 
         return run_program(call, seed=seed, timeout=timeout)
 
