@@ -46,6 +46,7 @@ class SystemInfo:
     # fmt: off
     gpu: str = ''           # Model name of the GPU
     cpu: str = ''           # Model name of the CPU
+    runtime: str = ''       # Whether CUDA or ROCm
     platform: str = ''      # Platform string of the machine
     torch: str = ''         # Torch version
     # fmt: on
@@ -280,6 +281,7 @@ def run_program(args: list[str], seed: Optional[int], timeout: int) -> RunResult
 
 
 def run_single_evaluation(
+    system: SystemInfo,
     call: list[str],
     mode: str,
     tests: Optional[str] = None,
@@ -324,19 +326,24 @@ def make_system_info() -> SystemInfo:
         # https://pytorch.org/docs/stable/notes/hip.html
         if torch.cuda.is_available():
             info.gpu = torch.cuda.get_device_name()
+            if torch.version.hip is not None:
+                info.runtime = "ROCm"
+            elif torch.version.cuda is not None:
+                info.runtime = "CUDA"
     except ImportError:
         # get GPU info manually
         try:
             info.gpu = subprocess.check_output(
                 ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], encoding="utf-8"
             )
+            info.runtime = "CUDA"
         except subprocess.CalledProcessError:
             # try again for HIP
-            # TODO suggested by Claude, untested
             try:
                 info.gpu = subprocess.check_output(
                     ["rocm-smi", "--showproductname"], encoding="utf-8"
                 )
+                info.runtime = "ROCm"
             except subprocess.CalledProcessError:
                 # OK, no GPU info available
                 pass
@@ -365,6 +372,7 @@ def make_system_info() -> SystemInfo:
 
 
 def run_cuda_script(  # # noqa: C901
+    system: SystemInfo,
     sources: dict[str, str],
     headers: Optional[dict[str, str]] = None,
     arch: Optional[int] = None,
@@ -424,7 +432,7 @@ def run_cuda_script(  # # noqa: C901
             if os.path.exists(f):
                 os.remove(f)
 
-    run_result = run_single_evaluation(["./eval.out"], **kwargs)
+    run_result = run_single_evaluation(system, ["./eval.out"], **kwargs)
     return EvalResult(
         start=start,
         end=datetime.datetime.now(),
@@ -434,6 +442,7 @@ def run_cuda_script(  # # noqa: C901
 
 
 def run_pytorch_script(  # noqa: C901
+    system: SystemInfo,
     sources: dict[str, str],
     main: str,
     **kwargs,
@@ -485,7 +494,7 @@ def run_pytorch_script(  # noqa: C901
                 exit_code=e.returncode,
             )
 
-        run = run_single_evaluation(["python", main], **kwargs)
+        run = run_single_evaluation(system, ["python", main], **kwargs)
 
         return EvalResult(
             start=start,
@@ -548,7 +557,9 @@ def build_test_string(tests: list[dict]):
 
 
 def run_config(config: dict):
+    system = make_system_info()
     common_args = {
+        "system": system,
         "tests": build_test_string(config.get("tests", [])),
         "benchmarks": build_test_string(config.get("benchmarks", [])),
         "seed": config.get("seed", None),
@@ -580,4 +591,4 @@ def run_config(config: dict):
         raise ValueError(f"Invalid language {config['lang']}")
 
     results = run_evaluation(runner, config["mode"])
-    return FullResult(success=True, error="", runs=results, system=make_system_info())
+    return FullResult(success=True, error="", runs=results, system=system)
