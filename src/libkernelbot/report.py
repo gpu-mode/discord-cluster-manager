@@ -332,6 +332,10 @@ def generate_report(result: FullResult) -> RunResultReport:  # noqa: C901
             make_profile_log(prof_run.run),
         )
 
+        if prof_run.run.profile_data is not None:
+            profile_data = base64.b64decode(prof_run.run.profile_data)
+            report.add_file('profile-data.zip', profile_data)
+
     if "leaderboard" in runs:
         bench_run = runs["leaderboard"]
         if _handle_crash_report(report, bench_run):
