@@ -32,15 +32,28 @@ class Log:
     content: str
 
 
+@dataclasses.dataclass
+class File:
+    """
+    File represents an attachment that is added to the report. This
+    is used for profiling results.
+    """
+    filename: str
+    content: bytes
+
+
 class RunResultReport:
     def __init__(self):
-        self.data: List[Text | Log] = []
+        self.data: List[Text | Log | File] = []
 
     def add_text(self, section: str):
         self.data.append(Text(section))
 
     def add_log(self, header: str, log: str):
         self.data.append(Log(header, log))
+
+    def add_file(self, filename: str, content: bytes):
+        self.data.append(File(filename, content))
 
 
 def _generate_compile_report(reporter: "RunResultReport", comp: CompileResult):
