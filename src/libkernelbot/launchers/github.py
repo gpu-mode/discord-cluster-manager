@@ -24,7 +24,7 @@ from libkernelbot.consts import (
 )
 from libkernelbot.report import RunProgressReporter
 from libkernelbot.run_eval import CompileResult, EvalResult, FullResult, RunResult, SystemInfo
-from libkernelbot.utils import setup_logging
+from libkernelbot.utils import setup_logging, KernelBotError
 
 from .launcher import Launcher
 
@@ -53,9 +53,9 @@ class GitHubLauncher(Launcher):
         self, config: dict, gpu_type: GPU, status: RunProgressReporter
     ) -> FullResult:
         gpu_vendor = None
-        if gpu_type.value in ["MI300", "MI250"]:
+        if gpu_type.value in ["MI300", "MI250", "MI300x8"]:
             selected_workflow = "amd_workflow.yml"
-            runner_name = {"MI300": "amdgpu-mi300-x86-64", "MI250": "amdgpu-mi250-x86-64"}[
+            runner_name = {"MI300": "amdgpu-mi300-x86-64", "MI250": "amdgpu-mi250-x86-64", "MI300x8": "amdgpu-mi300-8-x86-64"}[
                 gpu_type.value
             ]
             gpu_vendor = "AMD"
@@ -148,7 +148,10 @@ class GitHubLauncher(Launcher):
 class GitHubRun:
     def __init__(self, repo: str, token: str, branch: str, workflow_file: str):
         gh = Github(token)
-        self.repo = gh.get_repo(repo)
+        try:
+            self.repo = gh.get_repo(repo)
+        except UnknownObjectException as e:
+            raise KernelBotError(f"Could not find GitHub repository {repo}: 404") from e
         self.token = token
         self.branch = branch
         self.workflow_file = workflow_file

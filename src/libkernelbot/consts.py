@@ -19,6 +19,7 @@ class SchedulerType(Enum):
 class GitHubGPU(Enum):
     NVIDIA = "NVIDIA"
     MI300 = "MI300"
+    MI300x8 = "MI300x8"
     MI250 = "MI250"
 
 
