@@ -2,18 +2,19 @@
 
 [Full report](https://htmlpreview.github.io/?https://github.com/gpu-mode/discord-cluster-manager/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
-| Name                                |    Stmts |     Miss |   Cover |   Missing |
-|------------------------------------ | -------: | -------: | ------: | --------: |
-| src/libkernelbot/\_\_init\_\_.py    |        0 |        0 |    100% |           |
-| src/libkernelbot/backend.py         |       78 |        8 |     90% |38-39, 195-197, 214-216 |
-| src/libkernelbot/consts.py          |       67 |        1 |     99% |        47 |
-| src/libkernelbot/db\_types.py       |       47 |        1 |     98% |         6 |
-| src/libkernelbot/leaderboard\_db.py |      273 |       40 |     85% |59, 94, 626-628, 697-718, 875-899, 911-950, 957-978, 985-992, 1008-1017 |
-| src/libkernelbot/report.py          |      252 |        8 |     97% |46, 308, 318, 339, 366, 373-374, 381 |
-| src/libkernelbot/submission.py      |      130 |        1 |     99% |        18 |
-| src/libkernelbot/task.py            |      115 |        6 |     95% |68, 119, 124-126, 162 |
-| src/libkernelbot/utils.py           |       87 |        5 |     94% |     39-48 |
-|                           **TOTAL** | **1049** |   **70** | **93%** |           |
+| Name                                                |    Stmts |     Miss |   Cover |   Missing |
+|---------------------------------------------------- | -------: | -------: | ------: | --------: |
+| src/libkernelbot/\_\_init\_\_.py                    |        0 |        0 |    100% |           |
+| src/libkernelbot/backend.py                         |       80 |        9 |     89% |38-39, 59, 200-202, 219-221 |
+| src/libkernelbot/background\_submission\_manager.py |      148 |       24 |     84% |157-158, 184-187, 205-210, 227-252 |
+| src/libkernelbot/consts.py                          |       67 |        1 |     99% |        47 |
+| src/libkernelbot/db\_types.py                       |       52 |        1 |     98% |         7 |
+| src/libkernelbot/leaderboard\_db.py                 |      290 |       48 |     83% |65, 100, 377-388, 402-420, 725-727, 796-817, 974-998, 1010-1049, 1056-1077, 1084-1091, 1107-1116 |
+| src/libkernelbot/report.py                          |      252 |        8 |     97% |46, 308, 318, 339, 366, 373-374, 381 |
+| src/libkernelbot/submission.py                      |      130 |        1 |     99% |        18 |
+| src/libkernelbot/task.py                            |      115 |        6 |     95% |68, 119, 124-126, 162 |
+| src/libkernelbot/utils.py                           |       87 |        2 |     98% |     47-48 |
+|                                           **TOTAL** | **1221** |  **100** | **92%** |           |
 
 
 ## Setup coverage badge
