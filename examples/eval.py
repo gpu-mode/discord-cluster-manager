@@ -116,8 +116,13 @@ def calculate_stats(durations: list[int]):
     worst = max(durations)
 
     avg = total / runs
-    variance = sum(map(lambda x: (x - avg) ** 2, durations))
-    std = math.sqrt(variance / (runs - 1))
+
+    if runs == 1:
+        std = 0
+    else:
+        variance = sum(map(lambda x: (x - avg) ** 2, durations))
+        std = math.sqrt(variance / (runs - 1))
+
     err = std / math.sqrt(runs)
 
     return Stats(runs=runs, mean=avg, std=std, err=err, best=float(best),
@@ -499,26 +504,28 @@ def run_benchmarking(logger: PopcornOutput, pool: multiprocessing.Pool, tests: l
         return 112
 
 
-def run_single_profile(test: TestCase) -> str:
+def run_single_profile(test: TestCase, pool: multiprocessing.Pool) -> str:
     """
     Runs a single test case. Do not call directly
     """
     from submission import custom_kernel
     from torch.profiler import profile, record_function, ProfilerActivity
-    data = generate_input(**test.args)
-    torch.cuda.synchronize()
+    # data = generate_input(**test.args)
+    # torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA]) as prof:
-        submission_output = custom_kernel(_clone_data(data, 0))
-        torch.cuda.synchronize()
+        # TODO(Robin): Does torhc profile work with distributed?
+        run_single_benchmark(pool, test, False, 1, 10e9)
+        # submission_output = custom_kernel(_clone_data(data, 0))
+        # torch.cuda.synchronize()
     return prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=20)
 
 
-def run_profiling(logger: PopcornOutput, tests: list[TestCase]):
+def run_profiling(logger: PopcornOutput, pool: multiprocessing.Pool, tests: list[TestCase]):
     logger.log("benchmark-count", len(tests))
     for idx, test in enumerate(tests):
         logger.log(f"benchmark.{idx}.spec", test.spec)
-        report = run_single_profile(test)
+        report = run_single_profile(test, pool)
         logger.log(f"benchmark.{idx}.report", base64.b64encode(report.encode("utf-8"), b"+*").decode("utf-8"))
     logger.log("check", "pass")
     return 0
@@ -568,7 +575,7 @@ def main():
 
                 logger.log("check", "pass" if passed else "fail")
             elif mode == "profile":
-                run_profiling(logger, tests)
+                run_profiling(logger, pool, tests)
             else:
                 # invalid mode
                 return 2
