@@ -1,6 +1,8 @@
 FROM ghcr.io/actions/actions-runner:latest
 
 ENV CXX=clang++
+ENV UCX_CXX=g++
+ENV UCX_CC=gcc
 
 RUN sudo apt-get update -y \
     && sudo apt-get install -y software-properties-common \
@@ -68,6 +70,9 @@ RUN sudo apt-get update -y \
     gfortran \
     flex \
     bison \
+    libomp-dev \
+    libhwloc-dev \
+    libnuma-dev \
     && sudo rm -rf /var/lib/apt/lists/*
 
 ENV UCX_INSTALL_DIR=/opt/ucx
@@ -79,7 +84,7 @@ RUN cd /tmp \
     && git clone https://github.com/openucx/ucx.git -b v1.17.x \
     && cd ucx \
     && ./autogen.sh \
-    && ./configure --prefix=${UCX_INSTALL_DIR} --with-rocm=${ROCM_PATH} --enable-mt \
+    && CC=gcc CXX=g++ ./configure --prefix=${UCX_INSTALL_DIR} --with-rocm=${ROCM_PATH} --enable-mt --disable-optimizations \
     && make -j$(nproc) \
     && sudo make install \
     && cd / \
@@ -96,7 +101,7 @@ RUN cd /tmp \
     && sudo rm -rf /tmp/ompi
 
 ENV PATH="${OMPI_INSTALL_DIR}/bin:${PATH}"
-ENV LD_LIBRARY_PATH="${OMPI_INSTALL_DIR}/lib:${UCX_INSTALL_DIR}/lib:${LD_LIBRARY_PATH}"
+ENV LD_LIBRARY_PATH="${OMPI_INSTALL_DIR}/lib:${UCX_INSTALL_DIR}/lib:/opt/rocm/lib"
 
 
 RUN cd /tmp \
