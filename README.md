@@ -10,11 +10,11 @@
 | src/libkernelbot/consts.py                          |       68 |        1 |     99% |        48 |
 | src/libkernelbot/db\_types.py                       |       52 |        1 |     98% |         7 |
 | src/libkernelbot/leaderboard\_db.py                 |      289 |       48 |     83% |65, 99, 373-383, 396-414, 719-721, 790-811, 968-992, 1004-1043, 1050-1071, 1078-1085, 1101-1110 |
-| src/libkernelbot/report.py                          |      252 |        8 |     97% |46, 308, 318, 339, 366, 373-374, 381 |
+| src/libkernelbot/report.py                          |      261 |        8 |     97% |60, 323, 333, 361, 388, 395-396, 403 |
 | src/libkernelbot/submission.py                      |      130 |        1 |     99% |        18 |
 | src/libkernelbot/task.py                            |      116 |        6 |     95% |68, 119, 124-126, 163 |
 | src/libkernelbot/utils.py                           |       87 |        5 |     94% |     39-48 |
-|                                           **TOTAL** | **1238** |  **110** | **91%** |           |
+|                                           **TOTAL** | **1247** |  **110** | **91%** |           |
 
 
 ## Setup coverage badge
