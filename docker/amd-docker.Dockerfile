@@ -110,7 +110,7 @@ RUN cd /tmp \
     && mkdir build \
     && cd build \
     && MPI_ROOT=${OMPI_INSTALL_DIR} UCX_ROOT=${UCX_INSTALL_DIR} CMAKE_PREFIX_PATH="${ROCM_PATH}:$CMAKE_PREFIX_PATH" \
-       ../scripts/build_configs/ipc_single ${ROCSHMEM_INSTALL_DIR} \
+       sudo ../scripts/build_configs/ipc_single -DCMAKE_INSTALL_PREFIX=/opt/rocshmem \
     && cd / \
     && sudo rm -rf /tmp/rocSHMEM
 
