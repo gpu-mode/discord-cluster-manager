@@ -6,15 +6,15 @@
 |---------------------------------------------------- | -------: | -------: | ------: | --------: |
 | src/libkernelbot/\_\_init\_\_.py                    |        0 |        0 |    100% |           |
 | src/libkernelbot/backend.py                         |       80 |        9 |     89% |38-39, 59, 200-202, 219-221 |
-| src/libkernelbot/background\_submission\_manager.py |      164 |       31 |     81% |36, 38-40, 42, 45, 47, 176-177, 203-206, 224-229, 246-271 |
-| src/libkernelbot/consts.py                          |       68 |        1 |     99% |        48 |
-| src/libkernelbot/db\_types.py                       |       52 |        1 |     98% |         7 |
+| src/libkernelbot/background\_submission\_manager.py |      160 |       31 |     81% |36, 38-40, 42, 45, 47, 176-177, 203-206, 224-229, 246-271 |
+| src/libkernelbot/consts.py                          |       65 |        1 |     98% |        48 |
+| src/libkernelbot/db\_types.py                       |       14 |        1 |     93% |         7 |
 | src/libkernelbot/leaderboard\_db.py                 |      289 |       48 |     83% |65, 99, 373-383, 396-414, 719-721, 790-811, 968-992, 1004-1043, 1050-1071, 1078-1085, 1101-1110 |
-| src/libkernelbot/report.py                          |      261 |        8 |     97% |60, 323, 333, 361, 388, 395-396, 403 |
-| src/libkernelbot/submission.py                      |      130 |        1 |     99% |        18 |
-| src/libkernelbot/task.py                            |      116 |        6 |     95% |68, 119, 124-126, 163 |
+| src/libkernelbot/report.py                          |      255 |        8 |     97% |60, 323, 333, 361, 388, 395-396, 403 |
+| src/libkernelbot/submission.py                      |      121 |        1 |     99% |        18 |
+| src/libkernelbot/task.py                            |      110 |        6 |     95% |68, 119, 124-126, 163 |
 | src/libkernelbot/utils.py                           |       87 |        5 |     94% |     39-48 |
-|                                           **TOTAL** | **1247** |  **110** | **91%** |           |
+|                                           **TOTAL** | **1181** |  **110** | **91%** |           |
 
 
 ## Setup coverage badge
